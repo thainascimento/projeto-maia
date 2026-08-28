@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function HomeScreen() {
+export default function MaiaScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bem-vinda</Text>
+      <Text style={styles.title}>maIA</Text>
+
       <Text style={styles.subtitle}>
-        Seu espaço para viajar com mais informação e segurança.
+        Sua assistente virtual de viagem.
       </Text>
     </View>
   );
