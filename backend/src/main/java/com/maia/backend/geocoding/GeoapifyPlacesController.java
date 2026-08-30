@@ -1,4 +1,4 @@
-package com.maia.backend.local;
+package com.maia.backend.geocoding;
 
 import java.util.List;
 
@@ -7,16 +7,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.maia.backend.geocoding.GeoapifyPlacesService;
+import com.maia.backend.local.LocalResponse;
 
 @RestController
-@RequestMapping("/locais")
-public class LocalController {
+@RequestMapping("/geoapify-places")
+public class GeoapifyPlacesController {
 
-    private final GeoapifyPlacesService
-            geoapifyPlacesService;
+    private final GeoapifyPlacesService geoapifyPlacesService;
 
-    public LocalController(
+    public GeoapifyPlacesController(
             GeoapifyPlacesService geoapifyPlacesService
     ) {
         this.geoapifyPlacesService =
@@ -24,7 +23,7 @@ public class LocalController {
     }
 
     @GetMapping("/proximos")
-    public List<LocalResponse> buscarProximos(
+    public List<LocalResponse> buscarLocais(
             @RequestParam double lat,
             @RequestParam double lon,
             @RequestParam String categoria

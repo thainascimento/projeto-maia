@@ -18,15 +18,22 @@ export default function TabLayout() {
 
         tabBarActiveTintColor: '#6d28d9',
         tabBarInactiveTintColor: '#888888',
+
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+        },
       }}
     >
+      {/* INÍCIO */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'INÍCIO',
+          tabBarLabel: 'INÍCIO',
           tabBarIcon: ({ color }) => (
             <IconSymbol
-              size={28}
+              size={27}
               name="house.fill"
               color={color}
             />
@@ -34,13 +41,15 @@ export default function TabLayout() {
         }}
       />
 
+      {/* EU BUSCO */}
       <Tabs.Screen
         name="locais"
         options={{
-          title: 'Locais',
+          title: 'EU BUSCO!',
+          tabBarLabel: 'EU BUSCO!',
           tabBarIcon: ({ color }) => (
             <IconSymbol
-              size={28}
+              size={27}
               name="map.fill"
               color={color}
             />
@@ -48,13 +57,15 @@ export default function TabLayout() {
         }}
       />
 
+      {/* maIA */}
       <Tabs.Screen
         name="maia"
         options={{
           title: 'maIA',
+          tabBarLabel: 'maIA',
           tabBarIcon: ({ color }) => (
             <IconSymbol
-              size={28}
+              size={27}
               name="sparkles"
               color={color}
             />
@@ -62,13 +73,31 @@ export default function TabLayout() {
         }}
       />
 
+      {/* EU CONTO */}
+      <Tabs.Screen
+        name="conto"
+        options={{
+          title: 'EU CONTO!',
+          tabBarLabel: 'EU CONTO!',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              size={27}
+              name="star.fill"
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* PERFIL */}
       <Tabs.Screen
         name="perfil"
         options={{
-          title: 'Perfil',
+          title: 'PERFIL',
+          tabBarLabel: 'PERFIL',
           tabBarIcon: ({ color }) => (
             <IconSymbol
-              size={28}
+              size={27}
               name="person.fill"
               color={color}
             />
