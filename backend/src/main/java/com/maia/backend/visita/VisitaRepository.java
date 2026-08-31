@@ -10,11 +10,25 @@ public interface VisitaRepository
 
     List<Visita> findByAvaliadaFalseAndCheckOutIsNotNull();
 
-    Optional<Visita> findFirstByLocalIdAndCheckOutIsNullOrderByCheckInDesc(
+    // Busca qualquer visita ativa da usuária.
+    Optional<Visita>
+            findFirstByUsuarioIdAndCheckOutIsNullOrderByCheckInDesc(
+                    Long usuarioId
+            );
+
+    // Busca visita ativa da usuária em um local específico.
+    Optional<Visita>
+            findFirstByUsuarioIdAndLocalIdAndCheckOutIsNullOrderByCheckInDesc(
+                    Long usuarioId,
+                    String localId
+            );
+
+    List<Visita> findByLocalId(
             String localId
     );
 
-    List<Visita> findByLocalId(
-        String localId
-);
+    List<Visita> findByUsuarioIdAndAvaliadaFalseAndCheckOutIsNotNull(
+            Long usuarioId
+);        
+   
 }

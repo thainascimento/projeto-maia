@@ -1,4 +1,5 @@
 import { API_URL } from '@/services/api';
+import { buscarUsuario } from '@/services/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
 
 type Visita = {
   id: number;
+  usuarioId: number;
   localId: string;
   nomeLocal: string;
   categoria: string;
@@ -27,10 +29,11 @@ type Visita = {
 type Avaliacao = {
   id: number;
   visitaId: number;
+  usuarioId: number;
   notaGeral: number;
   seguranca: number;
-  voltaria: boolean | null;
   iriaSozinha: boolean | null;
+  percepcaoEntorno: string;
   comentario: string;
   criadaEm: string;
 };
@@ -69,19 +72,18 @@ export default function LocalDetalhesScreen() {
   }, [params.id]);
 
   async function verificarVisitaAtiva() {
-    if (!params.id) {
-      setVisitaAtiva(null);
-      setVerificandoVisita(false);
-      return;
-    }
-
     try {
       setVerificandoVisita(true);
 
+      const usuario = await buscarUsuario();
+
+      if (!usuario?.id) {
+        setVisitaAtiva(null);
+        return;
+      }
+
       const response = await fetch(
-        `${API_URL}/visitas/ativa/${encodeURIComponent(
-          params.id
-        )}`
+        `${API_URL}/visitas/ativa?usuarioId=${usuario.id}`
       );
 
       if (response.status === 204) {
@@ -167,14 +169,26 @@ export default function LocalDetalhesScreen() {
     try {
       setCarregando(true);
 
+      const usuario = await buscarUsuario();
+
+      if (!usuario?.id) {
+        Alert.alert(
+          'Sessão inválida',
+          'Não foi possível identificar a usuária logada.'
+        );
+        return;
+      }
+
       const response = await fetch(
         `${API_URL}/visitas/check-in`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type':
+              'application/json',
           },
           body: JSON.stringify({
+            usuarioId: usuario.id,
             localId: params.id,
             nomeLocal: params.nome,
             categoria: params.categoria,
@@ -193,8 +207,8 @@ export default function LocalDetalhesScreen() {
 
       if (response.status === 409) {
         Alert.alert(
-          'Visita já iniciada',
-          'Já existe uma visita ativa neste local.'
+          'Visita já em andamento',
+          'Você precisa fazer o check-out da visita atual antes de iniciar outra.'
         );
 
         await verificarVisitaAtiva();
@@ -327,6 +341,34 @@ export default function LocalDetalhesScreen() {
     return soma / avaliacoes.length;
   }
 
+  function formatarPercepcaoEntorno(
+    percepcao?: string
+  ) {
+    switch (percepcao) {
+      case 'TRANQUILO_MOVIMENTADO':
+        return 'Tranquilo e movimentado';
+
+      case 'TRANQUILO_POUCO_MOVIMENTADO':
+        return 'Tranquilo, mas pouco movimentado';
+
+      case 'DESCONFORTAVEL':
+        return 'Um pouco desconfortável';
+
+      case 'INSEGURO':
+        return 'Inseguro';
+
+      default:
+        return 'Não informado';
+    }
+  }
+
+  const visitaAtivaNesteLocal =
+    visitaAtiva?.localId === params.id;
+
+  const visitaAtivaEmOutroLocal =
+    visitaAtiva !== null &&
+    visitaAtiva.localId !== params.id;
+
   return (
     <ScrollView
       style={styles.container}
@@ -389,7 +431,7 @@ export default function LocalDetalhesScreen() {
               Verificando visita...
             </Text>
           </View>
-        ) : visitaAtiva ? (
+        ) : visitaAtivaNesteLocal ? (
           <>
             <Text style={styles.visitActiveBadge}>
               VISITA EM ANDAMENTO
@@ -402,7 +444,7 @@ export default function LocalDetalhesScreen() {
             <Text style={styles.visitTime}>
               Check-in realizado em{' '}
               {new Date(
-                visitaAtiva.checkIn
+                visitaAtiva!.checkIn
               ).toLocaleString('pt-BR')}
             </Text>
 
@@ -425,6 +467,35 @@ export default function LocalDetalhesScreen() {
                   : 'FAZER CHECK-OUT'}
               </Text>
             </Pressable>
+          </>
+        ) : visitaAtivaEmOutroLocal ? (
+          <>
+            <Text style={styles.visitActiveBadge}>
+              VISITA EM ANDAMENTO
+            </Text>
+
+            <Text style={styles.visitStatus}>
+              Você já está em outro local.
+            </Text>
+
+            <Text style={styles.visitHelper}>
+              Sua visita atual é em{' '}
+              <Text style={styles.activePlaceName}>
+                {visitaAtiva?.nomeLocal}
+              </Text>
+              . Faça o check-out antes de iniciar
+              uma nova visita.
+            </Text>
+
+            <View style={styles.blockedCheckin}>
+              <Text
+                style={
+                  styles.blockedCheckinText
+                }
+              >
+                CHECK-IN INDISPONÍVEL
+              </Text>
+            </View>
           </>
         ) : (
           <>
@@ -467,11 +538,17 @@ export default function LocalDetalhesScreen() {
         </Text>
 
         {carregandoAvaliacoes ? (
-          <View style={styles.loadingEvaluations}>
+          <View
+            style={
+              styles.loadingEvaluations
+            }
+          >
             <ActivityIndicator />
 
             <Text
-              style={styles.loadingEvaluationsText}
+              style={
+                styles.loadingEvaluationsText
+              }
             >
               Buscando avaliações...
             </Text>
@@ -497,7 +574,9 @@ export default function LocalDetalhesScreen() {
 
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryValue}>
-                  {calcularMediaSeguranca().toFixed(1)}
+                  {calcularMediaSeguranca().toFixed(
+                    1
+                  )}
                 </Text>
 
                 <Text style={styles.summaryLabel}>
@@ -537,8 +616,7 @@ export default function LocalDetalhesScreen() {
                     styles.avaliacaoSeguranca
                   }
                 >
-                  Segurança:{' '}
-                  {avaliacao.seguranca}/5
+                  Segurança: {avaliacao.seguranca}/5
                 </Text>
 
                 {!!avaliacao.comentario && (
@@ -561,10 +639,10 @@ export default function LocalDetalhesScreen() {
                       styles.avaliacaoDetalhe
                     }
                   >
-                    Voltaria:{' '}
-                    {avaliacao.voltaria === null
+                    Iria sozinha:{' '}
+                    {avaliacao.iriaSozinha === null
                       ? 'Não informado'
-                      : avaliacao.voltaria
+                      : avaliacao.iriaSozinha
                       ? 'Sim'
                       : 'Não'}
                   </Text>
@@ -574,12 +652,10 @@ export default function LocalDetalhesScreen() {
                       styles.avaliacaoDetalhe
                     }
                   >
-                    Iria sozinha:{' '}
-                    {avaliacao.iriaSozinha === null
-                      ? 'Não informado'
-                      : avaliacao.iriaSozinha
-                      ? 'Sim'
-                      : 'Não'}
+                    Entorno:{' '}
+                    {formatarPercepcaoEntorno(
+                      avaliacao.percepcaoEntorno
+                    )}
                   </Text>
                 </View>
               </View>
@@ -716,6 +792,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     marginBottom: 10,
+  },
+
+  activePlaceName: {
+    fontWeight: '800',
+    color: '#6d28d9',
+  },
+
+  blockedCheckin: {
+    backgroundColor: '#eeeeee',
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+
+  blockedCheckinText: {
+    color: '#888888',
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   loadingVisit: {

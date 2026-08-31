@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -25,35 +26,45 @@ public class VisitaController {
         this.visitaRepository = visitaRepository;
     }
 
-    // Inicia uma nova visita.
-    // Chamado quando a usuária toca em "ESTOU AQUI".
+    // Faz o check-in.
+    // A usuária só pode ter UMA visita ativa por vez.
     @PostMapping("/check-in")
     public ResponseEntity<?> checkIn(
             @RequestBody Visita visita
     ) {
 
-        // Verifica se já existe uma visita ativa
-        // para este mesmo local.
+        if (visita.getUsuarioId() == null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            "Usuária não informada."
+                    );
+        }
+
         Optional<Visita> visitaAtiva =
                 visitaRepository
-                        .findFirstByLocalIdAndCheckOutIsNullOrderByCheckInDesc(
-                                visita.getLocalId()
+                        .findFirstByUsuarioIdAndCheckOutIsNullOrderByCheckInDesc(
+                                visita.getUsuarioId()
                         );
 
         if (visitaAtiva.isPresent()) {
             return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
+                    .status(
+                            HttpStatus.CONFLICT
+                    )
                     .body(
-                            "Já existe uma visita ativa neste local."
+                            "Você já possui uma visita em andamento. Faça o check-out antes de iniciar outra."
                     );
         }
 
-        // O backend controla esses campos.
         visita.setId(null);
+
         visita.setCheckIn(
                 LocalDateTime.now()
         );
+
         visita.setCheckOut(null);
+
         visita.setAvaliada(false);
 
         Visita visitaSalva =
@@ -68,19 +79,17 @@ public class VisitaController {
                 .body(visitaSalva);
     }
 
-    // Busca uma visita ainda ativa daquele local.
-    // Isso permite que o botão continue mostrando
-    // "CHECK-OUT" mesmo se a usuária sair da tela
-    // e depois voltar.
-    @GetMapping("/ativa/{localId}")
-    public ResponseEntity<?> buscarVisitaAtiva(
-            @PathVariable String localId
+    // Busca qualquer visita ativa da usuária.
+    // Não importa em qual local ela esteja.
+    @GetMapping("/ativa")
+    public ResponseEntity<?> buscarQualquerVisitaAtiva(
+            @RequestParam Long usuarioId
     ) {
 
         Optional<Visita> visitaAtiva =
                 visitaRepository
-                        .findFirstByLocalIdAndCheckOutIsNullOrderByCheckInDesc(
-                                localId
+                        .findFirstByUsuarioIdAndCheckOutIsNullOrderByCheckInDesc(
+                                usuarioId
                         );
 
         if (visitaAtiva.isEmpty()) {
@@ -94,8 +103,7 @@ public class VisitaController {
         );
     }
 
-    // Finaliza uma visita.
-    // Chamado quando a usuária toca em "FAZER CHECK-OUT".
+    // Finaliza a visita ativa.
     @PostMapping("/{id}/check-out")
     public ResponseEntity<?> checkOut(
             @PathVariable Long id
@@ -119,9 +127,7 @@ public class VisitaController {
         Visita visita =
                 visitaEncontrada.get();
 
-        if (
-                visita.getCheckOut() != null
-        ) {
+        if (visita.getCheckOut() != null) {
             return ResponseEntity
                     .status(
                             HttpStatus.CONFLICT
@@ -145,14 +151,16 @@ public class VisitaController {
         );
     }
 
-    // Lista todas as visitas que já tiveram check-out,
-    // mas ainda não foram avaliadas.
-    // Futuramente esta lista alimentará o "EU CONTO!".
+    // Lista visitas que já tiveram check-out
+    // e ainda não foram avaliadas.
     @GetMapping("/pendentes")
-    public List<Visita>
-            listarPendentesDeAvaliacao() {
+        public List<Visita> listarPendentesDeAvaliacao(
+                @RequestParam Long usuarioId
+        ) {
 
         return visitaRepository
-                .findByAvaliadaFalseAndCheckOutIsNotNull();
-    }
+                .findByUsuarioIdAndAvaliadaFalseAndCheckOutIsNotNull(
+                        usuarioId
+                );
+        }
 }

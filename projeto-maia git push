@@ -1,0 +1,37 @@
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m13[m[36m:[m@RequestMapping("/[1;31mgeoapify[m-places")
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m14[m[36m:[mpublic class [1;31mGeoapify[mPlacesController {
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m16[m[36m:[m    private final [1;31mGeoapify[mPlacesService [1;31mgeoapify[mPlacesService;
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m18[m[36m:[m    public [1;31mGeoapify[mPlacesController(
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m19[m[36m:[m            [1;31mGeoapify[mPlacesService [1;31mgeoapify[mPlacesService
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m21[m[36m:[m        this.[1;31mgeoapify[mPlacesService =
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m22[m[36m:[m                [1;31mgeoapify[mPlacesService;
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesController.java[m[36m:[m[32m32[m[36m:[m        return [1;31mgeoapify[mPlacesService
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m16[m[36m:[mpublic class [1;31mGeoapify[mPlacesService {
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m21[m[36m:[m    @Value("${[1;31mgeoapify[m.api.key}")
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m24[m[36m:[m    public [1;31mGeoapify[mPlacesService(
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m28[m[36m:[m                .baseUrl("https://api.[1;31mgeoapify[m.com")
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m40[m[36m:[m        String categoria[1;31mGeoapify[m =
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m49[m[36m:[m                                categoria[1;31mGeoapify[m
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m172[m[36m:[m                                : "[1;31mgeoapify[m-"
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyPlacesService.java[m[36m:[m[32m191[m[36m:[m                    "Erro ao processar resposta do [1;31mGeoapify[m.",
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyService.java[m[36m:[m[32m8[m[36m:[mpublic class [1;31mGeoapify[mService {
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyService.java[m[36m:[m[32m12[m[36m:[m    @Value("${[1;31mgeoapify[m.api.key}")
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyService.java[m[36m:[m[32m15[m[36m:[m    public [1;31mGeoapify[mService() {
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeoapifyService.java[m[36m:[m[32m17[m[36m:[m                .baseUrl("https://api.[1;31mgeoapify[m.com")
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeocodingController.java[m[36m:[m[32m12[m[36m:[m    private final [1;31mGeoapify[mService [1;31mgeoapify[mService;
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeocodingController.java[m[36m:[m[32m15[m[36m:[m            [1;31mGeoapify[mService [1;31mgeoapify[mService
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeocodingController.java[m[36m:[m[32m17[m[36m:[m        this.[1;31mgeoapify[mService = [1;31mgeoapify[mService;
+[35mbackend/src/main/java/com/maia/backend/geocoding/GeocodingController.java[m[36m:[m[32m24[m[36m:[m        return [1;31mgeoapify[mService.buscarLocalizacao(texto);
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m10[m[36m:[mimport com.maia.backend.geocoding.[1;31mGeoapify[mPlacesService;
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m16[m[36m:[m    private final [1;31mGeoapify[mPlacesService
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m17[m[36m:[m            [1;31mgeoapify[mPlacesService;
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m20[m[36m:[m            [1;31mGeoapify[mPlacesService [1;31mgeoapify[mPlacesService
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m22[m[36m:[m        this.[1;31mgeoapify[mPlacesService =
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m23[m[36m:[m                [1;31mgeoapify[mPlacesService;
+[35mbackend/src/main/java/com/maia/backend/local/LocalController.java[m[36m:[m[32m33[m[36m:[m        return [1;31mgeoapify[mPlacesService
+[35mbackend/src/main/resources/application.properties[m[36m:[m[32m17[m[36m:[m// [1;31mGeoapify[m API key
+[35mbackend/src/main/resources/application.properties[m[36m:[m[32m18[m[36m:[m[1;31mgeoapify[m.api.key=${[1;31mGEOAPIFY[m_API_KEY}
+[35mmobile/app/(tabs)/locais.tsx[m[36m:[m[32m26[m[36m:[mtype [1;31mGeoapify[mResultado = {
+[35mmobile/app/(tabs)/locais.tsx[m[36m:[m[32m36[m[36m:[mtype [1;31mGeoapify[mResposta = {
+[35mmobile/app/(tabs)/locais.tsx[m[36m:[m[32m37[m[36m:[m  results?: [1;31mGeoapify[mResultado[];
+[35mmobile/app/(tabs)/locais.tsx[m[36m:[m[32m190[m[36m:[m      const dados: [1;31mGeoapify[mResposta =

@@ -1,4 +1,5 @@
 import { API_URL } from '@/services/api';
+import { buscarUsuario } from '@/services/auth';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
 
 type Visita = {
   id: number;
+  usuarioId: number;
   localId: string;
   nomeLocal: string;
   categoria: string;
@@ -24,9 +26,34 @@ type Visita = {
   avaliada: boolean;
 };
 
+type Avaliacao = {
+  id: number;
+  visitaId: number;
+  usuarioId: number;
+
+  nomeLocal: string;
+  categoria: string;
+  endereco: string;
+
+  notaGeral: number;
+  seguranca: number;
+  iriaSozinha: boolean | null;
+  percepcaoEntorno: string | null;
+  comentario: string;
+  criadaEm: string;
+};
+
+type Aba = 'pendentes' | 'avaliacoes';
+
 export default function ContoScreen() {
+  const [abaAtiva, setAbaAtiva] =
+    useState<Aba>('pendentes');
+
   const [visitas, setVisitas] =
     useState<Visita[]>([]);
+
+  const [avaliacoes, setAvaliacoes] =
+    useState<Avaliacao[]>([]);
 
   const [carregando, setCarregando] =
     useState(true);
@@ -38,35 +65,67 @@ export default function ContoScreen() {
     useState('');
 
   useEffect(() => {
-    carregarPendentes();
+    carregarDados();
   }, []);
 
-  async function carregarPendentes() {
+  async function carregarDados() {
     try {
       setErro('');
 
-      const response = await fetch(
-        `${API_URL}/visitas/pendentes`
-      );
+      const usuario =
+        await buscarUsuario();
 
-      if (!response.ok) {
+      if (!usuario?.id) {
+        setVisitas([]);
+        setAvaliacoes([]);
+
+        setErro(
+          'Não foi possível identificar a usuária logada.'
+        );
+
+        return;
+      }
+
+      const [
+        responsePendentes,
+        responseAvaliacoes,
+      ] = await Promise.all([
+        fetch(
+          `${API_URL}/visitas/pendentes?usuarioId=${usuario.id}`
+        ),
+        fetch(
+          `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`
+        ),
+      ]);
+
+      if (!responsePendentes.ok) {
         throw new Error(
-          `Erro HTTP: ${response.status}`
+          `Erro ao buscar pendentes: ${responsePendentes.status}`
         );
       }
 
-      const dados: Visita[] =
-        await response.json();
+      if (!responseAvaliacoes.ok) {
+        throw new Error(
+          `Erro ao buscar avaliações: ${responseAvaliacoes.status}`
+        );
+      }
 
-      setVisitas(dados);
+      const dadosPendentes: Visita[] =
+        await responsePendentes.json();
+
+      const dadosAvaliacoes: Avaliacao[] =
+        await responseAvaliacoes.json();
+
+      setVisitas(dadosPendentes);
+      setAvaliacoes(dadosAvaliacoes);
     } catch (error) {
       console.error(
-        'Erro ao carregar avaliações pendentes:',
+        'Erro ao carregar EU CONTO!:',
         error
       );
 
       setErro(
-        'Não foi possível carregar suas experiências pendentes.'
+        'Não foi possível carregar suas experiências.'
       );
     } finally {
       setCarregando(false);
@@ -76,7 +135,8 @@ export default function ContoScreen() {
 
   async function atualizar() {
     setAtualizando(true);
-    await carregarPendentes();
+
+    await carregarDados();
   }
 
   function formatarData(
@@ -97,6 +157,36 @@ export default function ContoScreen() {
         hour: '2-digit',
         minute: '2-digit',
       }
+    );
+  }
+
+  function formatarEntorno(
+    percepcao?: string | null
+  ) {
+    switch (percepcao) {
+      case 'TRANQUILO_MOVIMENTADO':
+        return 'Tranquilo e movimentado';
+
+      case 'TRANQUILO_POUCO_MOVIMENTADO':
+        return 'Tranquilo, mas pouco movimentado';
+
+      case 'DESCONFORTAVEL':
+        return 'Um pouco desconfortável';
+
+      case 'INSEGURO':
+        return 'Inseguro';
+
+      default:
+        return 'Não informado';
+    }
+  }
+
+  function renderEstrelas(
+    nota: number
+  ) {
+    return (
+      `${'★'.repeat(nota)}` +
+      `${'☆'.repeat(5 - nota)}`
     );
   }
 
@@ -124,12 +214,74 @@ export default function ContoScreen() {
         </Text>
 
         <Text style={styles.title}>
-          Como foi sua experiência?
+          Suas experiências
         </Text>
 
         <Text style={styles.subtitle}>
-          Avalie os lugares que você visitou e ajude outras viajantes.
+          Avalie os lugares que você
+          visitou e acompanhe o que já
+          contou para a comunidade MAIA.
         </Text>
+      </View>
+
+      <View style={styles.tabs}>
+        <Pressable
+          style={[
+            styles.tab,
+            abaAtiva === 'pendentes' &&
+              styles.tabActive,
+          ]}
+          onPress={() =>
+            setAbaAtiva('pendentes')
+          }
+        >
+          <Text
+            style={[
+              styles.tabText,
+              abaAtiva === 'pendentes' &&
+                styles.tabTextActive,
+            ]}
+          >
+            Para avaliar
+          </Text>
+
+          {visitas.length > 0 && (
+            <View
+              style={
+                styles.tabCounter
+              }
+            >
+              <Text
+                style={
+                  styles.tabCounterText
+                }
+              >
+                {visitas.length}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.tab,
+            abaAtiva === 'avaliacoes' &&
+              styles.tabActive,
+          ]}
+          onPress={() =>
+            setAbaAtiva('avaliacoes')
+          }
+        >
+          <Text
+            style={[
+              styles.tabText,
+              abaAtiva === 'avaliacoes' &&
+                styles.tabTextActive,
+            ]}
+          >
+            Minhas avaliações
+          </Text>
+        </Pressable>
       </View>
 
       {erro ? (
@@ -140,7 +292,7 @@ export default function ContoScreen() {
 
           <Pressable
             style={styles.retryButton}
-            onPress={carregarPendentes}
+            onPress={carregarDados}
           >
             <Text
               style={styles.retryText}
@@ -149,7 +301,8 @@ export default function ContoScreen() {
             </Text>
           </Pressable>
         </View>
-      ) : (
+      ) : abaAtiva ===
+        'pendentes' ? (
         <FlatList
           data={visitas}
           keyExtractor={(item) =>
@@ -196,25 +349,34 @@ export default function ContoScreen() {
                   styles.emptyText
                 }
               >
-                Quando você fizer check-out de um lugar, ele aparecerá aqui para avaliação.
+                Quando você fizer
+                check-out de um lugar,
+                ele aparecerá aqui para
+                avaliação.
               </Text>
             </View>
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.cardTop}>
+              <View
+                style={styles.cardTop}
+              >
                 <View
                   style={styles.iconBox}
                 >
                   <Text
-                    style={styles.iconText}
+                    style={
+                      styles.iconText
+                    }
                   >
                     ✦
                   </Text>
                 </View>
 
                 <View
-                  style={styles.cardMain}
+                  style={
+                    styles.cardMain
+                  }
                 >
                   <Text
                     style={
@@ -245,9 +407,7 @@ export default function ContoScreen() {
               </Text>
 
               <Text
-                style={
-                  styles.address
-                }
+                style={styles.address}
               >
                 {item.endereco ||
                   'Endereço não disponível'}
@@ -303,6 +463,232 @@ export default function ContoScreen() {
             </View>
           )}
         />
+      ) : (
+        <FlatList
+          data={avaliacoes}
+          keyExtractor={(item) =>
+            String(item.id)
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={atualizando}
+              onRefresh={atualizar}
+            />
+          }
+          showsVerticalScrollIndicator={
+            false
+          }
+          contentContainerStyle={
+            avaliacoes.length === 0
+              ? styles.emptyList
+              : styles.list
+          }
+          ListEmptyComponent={
+            <View
+              style={
+                styles.emptyContainer
+              }
+            >
+              <Text
+                style={
+                  styles.emptyEmoji
+                }
+              >
+                💜
+              </Text>
+
+              <Text
+                style={
+                  styles.emptyTitle
+                }
+              >
+                Nenhuma avaliação ainda
+              </Text>
+
+              <Text
+                style={
+                  styles.emptyText
+                }
+              >
+                Depois que você contar
+                como foi uma experiência,
+                sua avaliação aparecerá
+                aqui.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View
+              style={
+                styles.evaluationCard
+              }
+            >
+              <View
+                style={
+                  styles.evaluationHeader
+                }
+              >
+                <View
+                  style={
+                    styles.evaluationPlace
+                  }
+                >
+                  <Text
+                    style={
+                      styles.evaluationTitle
+                    }
+                  >
+                    {item.nomeLocal}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.evaluationCategory
+                    }
+                  >
+                    {item.categoria}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.evaluationBadge
+                  }
+                >
+                  <Text
+                    style={
+                      styles.evaluationBadgeText
+                    }
+                  >
+                    AVALIADO
+                  </Text>
+                </View>
+              </View>
+
+              {!!item.endereco && (
+                <Text
+                  style={
+                    styles.evaluationAddress
+                  }
+                >
+                  {item.endereco}
+                </Text>
+              )}
+
+              <Text
+                style={
+                  styles.evaluationDate
+                }
+              >
+                Avaliado em{' '}
+                {formatarData(
+                  item.criadaEm
+                )}
+              </Text>
+
+              <Text
+                style={
+                  styles.stars
+                }
+              >
+                {renderEstrelas(
+                  item.notaGeral
+                )}
+              </Text>
+
+              <View
+                style={
+                  styles.evaluationInfo
+                }
+              >
+                <Text
+                  style={
+                    styles.evaluationLabel
+                  }
+                >
+                  Segurança
+                </Text>
+
+                <Text
+                  style={
+                    styles.evaluationValue
+                  }
+                >
+                  {item.seguranca}/5
+                </Text>
+              </View>
+
+              <View
+                style={
+                  styles.evaluationInfo
+                }
+              >
+                <Text
+                  style={
+                    styles.evaluationLabel
+                  }
+                >
+                  Iria sozinha
+                </Text>
+
+                <Text
+                  style={
+                    styles.evaluationValue
+                  }
+                >
+                  {item.iriaSozinha ===
+                  null
+                    ? 'Não informado'
+                    : item.iriaSozinha
+                    ? 'Sim'
+                    : 'Não'}
+                </Text>
+              </View>
+
+              <View
+                style={
+                  styles.evaluationInfoColumn
+                }
+              >
+                <Text
+                  style={
+                    styles.evaluationLabel
+                  }
+                >
+                  Entorno
+                </Text>
+
+                <Text
+                  style={
+                    styles.evaluationValue
+                  }
+                >
+                  {formatarEntorno(
+                    item.percepcaoEntorno
+                  )}
+                </Text>
+              </View>
+
+              {!!item.comentario && (
+                <>
+                  <View
+                    style={
+                      styles.divider
+                    }
+                  />
+
+                  <Text
+                    style={
+                      styles.comment
+                    }
+                  >
+                    “{item.comentario}”
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
+        />
       )}
     </View>
   );
@@ -319,7 +705,7 @@ const styles =
     },
 
     header: {
-      marginBottom: 22,
+      marginBottom: 20,
     },
 
     eyebrow: {
@@ -341,6 +727,58 @@ const styles =
       fontSize: 14,
       lineHeight: 20,
       color: '#666666',
+    },
+
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor:
+        '#ececf2',
+      padding: 4,
+      borderRadius: 14,
+      marginBottom: 20,
+    },
+
+    tab: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      paddingHorizontal: 8,
+    },
+
+    tabActive: {
+      backgroundColor:
+        '#ffffff',
+    },
+
+    tabText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#777777',
+    },
+
+    tabTextActive: {
+      color: '#6d28d9',
+    },
+
+    tabCounter: {
+      minWidth: 20,
+      height: 20,
+      paddingHorizontal: 5,
+      borderRadius: 10,
+      backgroundColor:
+        '#6d28d9',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 6,
+    },
+
+    tabCounterText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontWeight: '800',
     },
 
     center: {
@@ -383,7 +821,7 @@ const styles =
     },
 
     list: {
-      paddingBottom: 40,
+      paddingBottom: 50,
     },
 
     emptyList: {
@@ -408,6 +846,7 @@ const styles =
       fontWeight: '800',
       color: '#222222',
       marginBottom: 8,
+      textAlign: 'center',
     },
 
     emptyText: {
@@ -470,7 +909,7 @@ const styles =
     divider: {
       height: 1,
       backgroundColor:
-        '#eeeeF3',
+        '#eeeef3',
       marginVertical: 14,
     },
 
@@ -509,5 +948,108 @@ const styles =
       color: '#ffffff',
       fontSize: 13,
       fontWeight: '800',
+    },
+
+    evaluationCard: {
+      backgroundColor:
+        '#ffffff',
+      borderRadius: 18,
+      padding: 17,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor:
+        '#e7e7ee',
+    },
+
+    evaluationHeader: {
+      flexDirection: 'row',
+      justifyContent:
+        'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 10,
+    },
+
+    evaluationPlace: {
+      flex: 1,
+      marginRight: 12,
+    },
+
+    evaluationTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: '#222222',
+    },
+
+    evaluationCategory: {
+      fontSize: 13,
+      color: '#6d28d9',
+      fontWeight: '700',
+      marginTop: 3,
+    },
+
+    evaluationAddress: {
+      fontSize: 13,
+      color: '#666666',
+      lineHeight: 19,
+      marginBottom: 5,
+    },
+
+    evaluationDate: {
+      fontSize: 11,
+      color: '#888888',
+      marginBottom: 12,
+    },
+
+    evaluationBadge: {
+      backgroundColor:
+        '#f1ebff',
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 999,
+    },
+
+    evaluationBadgeText: {
+      color: '#6d28d9',
+      fontSize: 10,
+      fontWeight: '800',
+    },
+
+    stars: {
+      fontSize: 23,
+      color: '#6d28d9',
+      marginBottom: 14,
+    },
+
+    evaluationInfo: {
+      flexDirection: 'row',
+      justifyContent:
+        'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+
+    evaluationInfoColumn: {
+      marginTop: 2,
+      marginBottom: 8,
+    },
+
+    evaluationLabel: {
+      fontSize: 12,
+      color: '#888888',
+      fontWeight: '700',
+      marginBottom: 3,
+    },
+
+    evaluationValue: {
+      fontSize: 14,
+      color: '#444444',
+      fontWeight: '600',
+    },
+
+    comment: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: '#555555',
+      fontStyle: 'italic',
     },
   });

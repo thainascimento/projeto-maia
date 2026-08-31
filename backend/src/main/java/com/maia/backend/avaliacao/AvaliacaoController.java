@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -59,7 +60,22 @@ public class AvaliacaoController {
     ) {
 
         return ResponseEntity.ok(
-                avaliacaoService.buscarPorLocal(localId)
+                avaliacaoService.buscarPorLocal(
+                        localId
+                )
         );
     }
+
+    @GetMapping("/minhas")
+public ResponseEntity<List<AvaliacaoResponse>> buscarMinhasAvaliacoes(
+        @RequestParam Long usuarioId
+) {
+
+    return ResponseEntity.ok(
+            avaliacaoService.buscarMinhasAvaliacoes(
+                    usuarioId
+            )
+    );
 }
+
+    }

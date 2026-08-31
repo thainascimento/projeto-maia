@@ -2,37 +2,24 @@ package com.maia.backend.avaliacao;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+public class AvaliacaoResponse {
 
-@Entity
-@Table(name = "avaliacoes")
-public class Avaliacao {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private Long visitaId;
-
     private Long usuarioId;
 
+    private String nomeLocal;
+    private String categoria;
+    private String endereco;
+
     private Integer notaGeral;
-
     private Integer seguranca;
-
     private Boolean iriaSozinha;
-
     private String percepcaoEntorno;
-
     private String comentario;
-
     private LocalDateTime criadaEm;
 
-    public Avaliacao() {
+    public AvaliacaoResponse() {
     }
 
     public Long getId() {
@@ -57,6 +44,30 @@ public class Avaliacao {
 
     public void setUsuarioId(Long usuarioId) {
         this.usuarioId = usuarioId;
+    }
+
+    public String getNomeLocal() {
+        return nomeLocal;
+    }
+
+    public void setNomeLocal(String nomeLocal) {
+        this.nomeLocal = nomeLocal;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getEndereco() {
+        return endereco;
+    }
+
+    public void setEndereco(String endereco) {
+        this.endereco = endereco;
     }
 
     public Integer getNotaGeral() {
