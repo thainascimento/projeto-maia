@@ -2,6 +2,7 @@ import { API_URL } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+
 import {
   ActivityIndicator,
   FlatList,
@@ -26,6 +27,34 @@ type Visita = {
   avaliada: boolean;
 };
 
+type ViagemPendente = {
+  id: number;
+  usuarioId: number;
+
+  destino: string;
+
+  cidade: string | null;
+  estado: string | null;
+  pais: string | null;
+
+  latitude: number | null;
+  longitude: number | null;
+
+  dataInicio: string;
+  dataFim: string;
+
+  cancelada: boolean;
+  avaliada: boolean;
+
+  criadaEm: string;
+
+  status:
+    | 'PLANEJADA'
+    | 'EM_ANDAMENTO'
+    | 'FINALIZADA'
+    | 'CANCELADA';
+};
+
 type Avaliacao = {
   id: number;
   visitaId: number;
@@ -43,25 +72,69 @@ type Avaliacao = {
   criadaEm: string;
 };
 
-type Aba = 'pendentes' | 'avaliacoes';
+type ItemPendente =
+  | {
+      tipo: 'VIAGEM';
+      viagem: ViagemPendente;
+    }
+  | {
+      tipo: 'LOCAL';
+      visita: Visita;
+    };
+
+type Aba =
+  | 'pendentes'
+  | 'avaliacoes';
 
 export default function ContoScreen() {
-  const [abaAtiva, setAbaAtiva] =
-    useState<Aba>('pendentes');
+  const [
+    abaAtiva,
+    setAbaAtiva,
+  ] =
+    useState<Aba>(
+      'pendentes'
+    );
 
-  const [visitas, setVisitas] =
-    useState<Visita[]>([]);
+  const [
+    visitas,
+    setVisitas,
+  ] =
+    useState<Visita[]>(
+      []
+    );
 
-  const [avaliacoes, setAvaliacoes] =
-    useState<Avaliacao[]>([]);
+  const [
+    viagensPendentes,
+    setViagensPendentes,
+  ] =
+    useState<
+      ViagemPendente[]
+    >([]);
 
-  const [carregando, setCarregando] =
+  const [
+    avaliacoes,
+    setAvaliacoes,
+  ] =
+    useState<
+      Avaliacao[]
+    >([]);
+
+  const [
+    carregando,
+    setCarregando,
+  ] =
     useState(true);
 
-  const [atualizando, setAtualizando] =
+  const [
+    atualizando,
+    setAtualizando,
+  ] =
     useState(false);
 
-  const [erro, setErro] =
+  const [
+    erro,
+    setErro,
+  ] =
     useState('');
 
   useEffect(() => {
@@ -77,6 +150,7 @@ export default function ContoScreen() {
 
       if (!usuario?.id) {
         setVisitas([]);
+        setViagensPendentes([]);
         setAvaliacoes([]);
 
         setErro(
@@ -87,37 +161,81 @@ export default function ContoScreen() {
       }
 
       const [
-        responsePendentes,
+        responseVisitasPendentes,
+        responseViagensPendentes,
         responseAvaliacoes,
-      ] = await Promise.all([
-        fetch(
-          `${API_URL}/visitas/pendentes?usuarioId=${usuario.id}`
-        ),
-        fetch(
-          `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`
-        ),
-      ]);
+      ] =
+        await Promise.all([
+          fetch(
+            `${API_URL}/visitas/pendentes?usuarioId=${usuario.id}`
+          ),
 
-      if (!responsePendentes.ok) {
+          fetch(
+            `${API_URL}/avaliacoes-viagens/pendentes?usuarioId=${usuario.id}`
+          ),
+
+          fetch(
+            `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`
+          ),
+        ]);
+
+      if (
+        !responseVisitasPendentes.ok
+      ) {
         throw new Error(
-          `Erro ao buscar pendentes: ${responsePendentes.status}`
+          `Erro ao buscar visitas pendentes: ${responseVisitasPendentes.status}`
         );
       }
 
-      if (!responseAvaliacoes.ok) {
+      if (
+        !responseViagensPendentes.ok
+      ) {
+        throw new Error(
+          `Erro ao buscar viagens pendentes: ${responseViagensPendentes.status}`
+        );
+      }
+
+      if (
+        !responseAvaliacoes.ok
+      ) {
         throw new Error(
           `Erro ao buscar avaliações: ${responseAvaliacoes.status}`
         );
       }
 
-      const dadosPendentes: Visita[] =
-        await responsePendentes.json();
+      const dadosVisitas:
+        Visita[] =
+          await responseVisitasPendentes.json();
 
-      const dadosAvaliacoes: Avaliacao[] =
-        await responseAvaliacoes.json();
+      const dadosViagens:
+        ViagemPendente[] =
+          await responseViagensPendentes.json();
 
-      setVisitas(dadosPendentes);
-      setAvaliacoes(dadosAvaliacoes);
+      const dadosAvaliacoes:
+        Avaliacao[] =
+          await responseAvaliacoes.json();
+
+      console.log(
+        'VISITAS PARA AVALIAR:',
+        dadosVisitas
+      );
+
+      console.log(
+        'VIAGENS PARA AVALIAR:',
+        dadosViagens
+      );
+
+      setVisitas(
+        dadosVisitas
+      );
+
+      setViagensPendentes(
+        dadosViagens
+      );
+
+      setAvaliacoes(
+        dadosAvaliacoes
+      );
     } catch (error) {
       console.error(
         'Erro ao carregar EU CONTO!:',
@@ -128,13 +246,20 @@ export default function ContoScreen() {
         'Não foi possível carregar suas experiências.'
       );
     } finally {
-      setCarregando(false);
-      setAtualizando(false);
+      setCarregando(
+        false
+      );
+
+      setAtualizando(
+        false
+      );
     }
   }
 
   async function atualizar() {
-    setAtualizando(true);
+    setAtualizando(
+      true
+    );
 
     await carregarDados();
   }
@@ -157,6 +282,51 @@ export default function ContoScreen() {
         hour: '2-digit',
         minute: '2-digit',
       }
+    );
+  }
+
+  function formatarDataViagem(
+    data?: string | null
+  ) {
+    if (!data) {
+      return '';
+    }
+
+    const [
+      ano,
+      mes,
+      dia,
+    ] =
+      data.split('-');
+
+    if (
+      !ano ||
+      !mes ||
+      !dia
+    ) {
+      return data;
+    }
+
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  function formatarLocalViagem(
+    viagem: ViagemPendente
+  ) {
+    const partes = [
+      viagem.cidade,
+      viagem.estado,
+      viagem.pais,
+    ].filter(Boolean);
+
+    if (
+      partes.length === 0
+    ) {
+      return viagem.destino;
+    }
+
+    return partes.join(
+      ', '
     );
   }
 
@@ -184,21 +354,64 @@ export default function ContoScreen() {
   function renderEstrelas(
     nota: number
   ) {
+    const notaValida =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          nota ?? 0
+        )
+      );
+
     return (
-      `${'★'.repeat(nota)}` +
-      `${'☆'.repeat(5 - nota)}`
+      `${'★'.repeat(
+        notaValida
+      )}` +
+      `${'☆'.repeat(
+        5 -
+          notaValida
+      )}`
     );
   }
 
+  const pendentes:
+    ItemPendente[] = [
+      ...viagensPendentes.map(
+        (viagem) => ({
+          tipo:
+            'VIAGEM' as const,
+          viagem,
+        })
+      ),
+
+      ...visitas.map(
+        (visita) => ({
+          tipo:
+            'LOCAL' as const,
+          visita,
+        })
+      ),
+    ];
+
+  const quantidadePendentes =
+    pendentes.length;
+
   if (carregando) {
     return (
-      <View style={styles.center}>
+      <View
+        style={
+          styles.center
+        }
+      >
         <ActivityIndicator
           size="large"
+          color="#6d28d9"
         />
 
         <Text
-          style={styles.loadingText}
+          style={
+            styles.loadingText
+          }
         >
           Buscando suas experiências...
         </Text>
@@ -207,45 +420,77 @@ export default function ContoScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>
+    <View
+      style={
+        styles.container
+      }
+    >
+      <View
+        style={
+          styles.header
+        }
+      >
+        <Text
+          style={
+            styles.eyebrow
+          }
+        >
           EU CONTO!
         </Text>
 
-        <Text style={styles.title}>
+        <Text
+          style={
+            styles.title
+          }
+        >
           Suas experiências
         </Text>
 
-        <Text style={styles.subtitle}>
-          Avalie os lugares que você
-          visitou e acompanhe o que já
-          contou para a comunidade MAIA.
+        <Text
+          style={
+            styles.subtitle
+          }
+        >
+          Conte como foram os
+          lugares que você visitou
+          e os destinos onde viveu
+          suas viagens.
         </Text>
       </View>
 
-      <View style={styles.tabs}>
+      <View
+        style={
+          styles.tabs
+        }
+      >
         <Pressable
           style={[
             styles.tab,
-            abaAtiva === 'pendentes' &&
+
+            abaAtiva ===
+              'pendentes' &&
               styles.tabActive,
           ]}
           onPress={() =>
-            setAbaAtiva('pendentes')
+            setAbaAtiva(
+              'pendentes'
+            )
           }
         >
           <Text
             style={[
               styles.tabText,
-              abaAtiva === 'pendentes' &&
+
+              abaAtiva ===
+                'pendentes' &&
                 styles.tabTextActive,
             ]}
           >
             Para avaliar
           </Text>
 
-          {visitas.length > 0 && (
+          {quantidadePendentes >
+            0 && (
             <View
               style={
                 styles.tabCounter
@@ -256,7 +501,9 @@ export default function ContoScreen() {
                   styles.tabCounterText
                 }
               >
-                {visitas.length}
+                {
+                  quantidadePendentes
+                }
               </Text>
             </View>
           )}
@@ -265,17 +512,23 @@ export default function ContoScreen() {
         <Pressable
           style={[
             styles.tab,
-            abaAtiva === 'avaliacoes' &&
+
+            abaAtiva ===
+              'avaliacoes' &&
               styles.tabActive,
           ]}
           onPress={() =>
-            setAbaAtiva('avaliacoes')
+            setAbaAtiva(
+              'avaliacoes'
+            )
           }
         >
           <Text
             style={[
               styles.tabText,
-              abaAtiva === 'avaliacoes' &&
+
+              abaAtiva ===
+                'avaliacoes' &&
                 styles.tabTextActive,
             ]}
           >
@@ -285,17 +538,31 @@ export default function ContoScreen() {
       </View>
 
       {erro ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>
+        <View
+          style={
+            styles.errorBox
+          }
+        >
+          <Text
+            style={
+              styles.errorText
+            }
+          >
             {erro}
           </Text>
 
           <Pressable
-            style={styles.retryButton}
-            onPress={carregarDados}
+            style={
+              styles.retryButton
+            }
+            onPress={
+              carregarDados
+            }
           >
             <Text
-              style={styles.retryText}
+              style={
+                styles.retryText
+              }
             >
               Tentar novamente
             </Text>
@@ -304,21 +571,37 @@ export default function ContoScreen() {
       ) : abaAtiva ===
         'pendentes' ? (
         <FlatList
-          data={visitas}
-          keyExtractor={(item) =>
-            String(item.id)
+          data={
+            pendentes
           }
+          keyExtractor={(
+            item
+          ) => {
+            if (
+              item.tipo ===
+              'VIAGEM'
+            ) {
+              return `viagem-${item.viagem.id}`;
+            }
+
+            return `local-${item.visita.id}`;
+          }}
           refreshControl={
             <RefreshControl
-              refreshing={atualizando}
-              onRefresh={atualizar}
+              refreshing={
+                atualizando
+              }
+              onRefresh={
+                atualizar
+              }
             />
           }
           showsVerticalScrollIndicator={
             false
           }
           contentContainerStyle={
-            visitas.length === 0
+            pendentes.length ===
+            0
               ? styles.emptyList
               : styles.list
           }
@@ -341,7 +624,8 @@ export default function ContoScreen() {
                   styles.emptyTitle
                 }
               >
-                Tudo contado por aqui
+                Tudo contado por
+                aqui
               </Text>
 
               <Text
@@ -349,137 +633,383 @@ export default function ContoScreen() {
                   styles.emptyText
                 }
               >
-                Quando você fizer
-                check-out de um lugar,
-                ele aparecerá aqui para
-                avaliação.
+                Depois de visitar
+                um lugar ou
+                finalizar uma
+                viagem, você poderá
+                contar como foi sua
+                experiência.
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View
-                style={styles.cardTop}
-              >
+          renderItem={({
+            item,
+          }) => {
+            if (
+              item.tipo ===
+              'VIAGEM'
+            ) {
+              const viagem =
+                item.viagem;
+
+              return (
                 <View
-                  style={styles.iconBox}
+                  style={[
+                    styles.card,
+                    styles.tripEvaluationCard,
+                  ]}
                 >
-                  <Text
+                  <View
                     style={
-                      styles.iconText
+                      styles.cardTop
                     }
                   >
-                    ✦
+                    <View
+                      style={
+                        styles.tripIconBox
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.tripIconText
+                        }
+                      >
+                        ✈
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.cardMain
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.pendingType
+                        }
+                      >
+                        DESTINO
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.localName
+                        }
+                      >
+                        {
+                          viagem.destino
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.tripLocation
+                        }
+                      >
+                        {formatarLocalViagem(
+                          viagem
+                        )}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.finishedBadge
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.finishedBadgeText
+                        }
+                      >
+                        VIAGEM
+                        FINALIZADA
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View
+                    style={
+                      styles.divider
+                    }
+                  />
+
+                  <Text
+                    style={
+                      styles.label
+                    }
+                  >
+                    Período da
+                    viagem
                   </Text>
+
+                  <Text
+                    style={
+                      styles.tripPeriod
+                    }
+                  >
+                    {formatarDataViagem(
+                      viagem.dataInicio
+                    )}
+
+                    {'  →  '}
+
+                    {formatarDataViagem(
+                      viagem.dataFim
+                    )}
+                  </Text>
+
+                  <View
+                    style={
+                      styles.tripPromptBox
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.tripPromptTitle
+                      }
+                    >
+                      Como foi viajar
+                      sozinha para
+                      esse destino?
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.tripPromptText
+                      }
+                    >
+                      Sua experiência
+                      pode ajudar
+                      outras mulheres
+                      a decidir onde
+                      viajar e como se
+                      preparar.
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    style={
+                      styles.evaluateTripButton
+                    }
+                    onPress={() => {
+                      router.push({
+                        pathname:
+                          '/avaliar-viagem/[id]' as any,
+
+                        params: {
+                          id:
+                            String(
+                              viagem.id
+                            ),
+
+                          destino:
+                            viagem.destino,
+
+                          cidade:
+                            viagem.cidade ??
+                            '',
+
+                          estado:
+                            viagem.estado ??
+                            '',
+
+                          pais:
+                            viagem.pais ??
+                            '',
+
+                          dataInicio:
+                            viagem.dataInicio,
+
+                          dataFim:
+                            viagem.dataFim,
+                        },
+                      });
+                    }}
+                  >
+                    <Text
+                      style={
+                        styles.evaluateButtonText
+                      }
+                    >
+                      AVALIAR DESTINO
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            }
+
+            const visita =
+              item.visita;
+
+            return (
+              <View
+                style={
+                  styles.card
+                }
+              >
+                <View
+                  style={
+                    styles.cardTop
+                  }
+                >
+                  <View
+                    style={
+                      styles.iconBox
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.iconText
+                      }
+                    >
+                      ✦
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.cardMain
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.pendingType
+                      }
+                    >
+                      LOCAL VISITADO
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.localName
+                      }
+                    >
+                      {visita.nomeLocal ||
+                        'Local não identificado'}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.category
+                      }
+                    >
+                      {visita.categoria ||
+                        'Categoria não informada'}
+                    </Text>
+                  </View>
                 </View>
 
                 <View
                   style={
-                    styles.cardMain
+                    styles.divider
                   }
-                >
-                  <Text
-                    style={
-                      styles.localName
-                    }
-                  >
-                    {item.nomeLocal}
-                  </Text>
+                />
 
-                  <Text
-                    style={
-                      styles.category
-                    }
-                  >
-                    {item.categoria}
-                  </Text>
-                </View>
-              </View>
-
-              <View
-                style={styles.divider}
-              />
-
-              <Text
-                style={styles.label}
-              >
-                Endereço
-              </Text>
-
-              <Text
-                style={styles.address}
-              >
-                {item.endereco ||
-                  'Endereço não disponível'}
-              </Text>
-
-              <Text
-                style={[
-                  styles.label,
-                  styles.dateLabel,
-                ]}
-              >
-                Visitado em
-              </Text>
-
-              <Text
-                style={styles.dateText}
-              >
-                {formatarData(
-                  item.checkOut
-                )}
-              </Text>
-
-              <Pressable
-                style={
-                  styles.evaluateButton
-                }
-                onPress={() => {
-                  router.push({
-                    pathname:
-                      '/avaliar/[id]' as any,
-                    params: {
-                      id: String(
-                        item.id
-                      ),
-                      nome:
-                        item.nomeLocal,
-                      categoria:
-                        item.categoria,
-                      endereco:
-                        item.endereco,
-                    },
-                  });
-                }}
-              >
                 <Text
                   style={
-                    styles.evaluateButtonText
+                    styles.label
                   }
                 >
-                  AVALIAR EXPERIÊNCIA
+                  Endereço
                 </Text>
-              </Pressable>
-            </View>
-          )}
+
+                <Text
+                  style={
+                    styles.address
+                  }
+                >
+                  {visita.endereco ||
+                    'Endereço não disponível'}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.label,
+                    styles.dateLabel,
+                  ]}
+                >
+                  Visitado em
+                </Text>
+
+                <Text
+                  style={
+                    styles.dateText
+                  }
+                >
+                  {formatarData(
+                    visita.checkOut
+                  )}
+                </Text>
+
+                <Pressable
+                  style={
+                    styles.evaluateButton
+                  }
+                  onPress={() => {
+                    router.push({
+                      pathname:
+                        '/avaliar/[id]' as any,
+
+                      params: {
+                        id:
+                          String(
+                            visita.id
+                          ),
+
+                        nome:
+                          visita.nomeLocal,
+
+                        categoria:
+                          visita.categoria,
+
+                        endereco:
+                          visita.endereco,
+                      },
+                    });
+                  }}
+                >
+                  <Text
+                    style={
+                      styles.evaluateButtonText
+                    }
+                  >
+                    AVALIAR
+                    EXPERIÊNCIA
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          }}
         />
       ) : (
         <FlatList
-          data={avaliacoes}
-          keyExtractor={(item) =>
-            String(item.id)
+          data={
+            avaliacoes
+          }
+          keyExtractor={(
+            item
+          ) =>
+            String(
+              item.id
+            )
           }
           refreshControl={
             <RefreshControl
-              refreshing={atualizando}
-              onRefresh={atualizar}
+              refreshing={
+                atualizando
+              }
+              onRefresh={
+                atualizar
+              }
             />
           }
           showsVerticalScrollIndicator={
             false
           }
           contentContainerStyle={
-            avaliacoes.length === 0
+            avaliacoes.length ===
+            0
               ? styles.emptyList
               : styles.list
           }
@@ -502,7 +1032,8 @@ export default function ContoScreen() {
                   styles.emptyTitle
                 }
               >
-                Nenhuma avaliação ainda
+                Nenhuma avaliação
+                ainda
               </Text>
 
               <Text
@@ -510,14 +1041,17 @@ export default function ContoScreen() {
                   styles.emptyText
                 }
               >
-                Depois que você contar
-                como foi uma experiência,
-                sua avaliação aparecerá
+                Depois que você
+                contar como foi uma
+                experiência, sua
+                avaliação aparecerá
                 aqui.
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({
+            item,
+          }) => (
             <View
               style={
                 styles.evaluationCard
@@ -538,7 +1072,8 @@ export default function ContoScreen() {
                       styles.evaluationTitle
                     }
                   >
-                    {item.nomeLocal}
+                    {item.nomeLocal ||
+                      'Local não identificado'}
                   </Text>
 
                   <Text
@@ -546,7 +1081,8 @@ export default function ContoScreen() {
                       styles.evaluationCategory
                     }
                   >
-                    {item.categoria}
+                    {item.categoria ||
+                      'Categoria não informada'}
                   </Text>
                 </View>
 
@@ -565,15 +1101,14 @@ export default function ContoScreen() {
                 </View>
               </View>
 
-              {!!item.endereco && (
-                <Text
-                  style={
-                    styles.evaluationAddress
-                  }
-                >
-                  {item.endereco}
-                </Text>
-              )}
+              <Text
+                style={
+                  styles.evaluationAddress
+                }
+              >
+                {item.endereco ||
+                  'Endereço não disponível'}
+              </Text>
 
               <Text
                 style={
@@ -581,6 +1116,7 @@ export default function ContoScreen() {
                 }
               >
                 Avaliado em{' '}
+
                 {formatarData(
                   item.criadaEm
                 )}
@@ -682,7 +1218,11 @@ export default function ContoScreen() {
                       styles.comment
                     }
                   >
-                    “{item.comentario}”
+                    “
+                    {
+                      item.comentario
+                    }
+                    ”
                   </Text>
                 </>
               )}
@@ -743,7 +1283,8 @@ const styles =
       minHeight: 44,
       borderRadius: 11,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       flexDirection: 'row',
       paddingHorizontal: 8,
     },
@@ -771,7 +1312,8 @@ const styles =
       backgroundColor:
         '#6d28d9',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       marginLeft: 6,
     },
 
@@ -784,7 +1326,8 @@ const styles =
     center: {
       flex: 1,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       backgroundColor:
         '#f7f7fb',
     },
@@ -830,7 +1373,8 @@ const styles =
 
     emptyContainer: {
       flex: 1,
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       alignItems: 'center',
       paddingHorizontal: 28,
       paddingBottom: 80,
@@ -867,6 +1411,11 @@ const styles =
         '#e7e7ee',
     },
 
+    tripEvaluationCard: {
+      borderColor:
+        '#ddd1ff',
+    },
+
     cardTop: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -879,7 +1428,8 @@ const styles =
       backgroundColor:
         '#f1ebff',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       marginRight: 12,
     },
 
@@ -889,8 +1439,33 @@ const styles =
       fontWeight: '800',
     },
 
+    tripIconBox: {
+      width: 50,
+      height: 50,
+      borderRadius: 15,
+      backgroundColor:
+        '#f1ebff',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginRight: 12,
+    },
+
+    tripIconText: {
+      fontSize: 22,
+      color: '#6d28d9',
+    },
+
     cardMain: {
       flex: 1,
+    },
+
+    pendingType: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: '#6d28d9',
+      letterSpacing: 0.8,
+      marginBottom: 3,
     },
 
     localName: {
@@ -904,6 +1479,30 @@ const styles =
       fontSize: 13,
       fontWeight: '600',
       color: '#6d28d9',
+    },
+
+    tripLocation: {
+      fontSize: 12,
+      color: '#777777',
+      lineHeight: 17,
+    },
+
+    finishedBadge: {
+      maxWidth: 75,
+      backgroundColor:
+        '#f1ebff',
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 10,
+      marginLeft: 7,
+    },
+
+    finishedBadgeText: {
+      fontSize: 8,
+      lineHeight: 11,
+      textAlign: 'center',
+      color: '#6d28d9',
+      fontWeight: '900',
     },
 
     divider: {
@@ -936,11 +1535,47 @@ const styles =
       marginBottom: 16,
     },
 
+    tripPeriod: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#444444',
+      marginBottom: 15,
+    },
+
+    tripPromptBox: {
+      backgroundColor:
+        '#f7f3ff',
+      borderRadius: 13,
+      padding: 13,
+      marginBottom: 15,
+    },
+
+    tripPromptTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#6d28d9',
+      marginBottom: 4,
+    },
+
+    tripPromptText: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: '#555555',
+    },
+
     evaluateButton: {
       backgroundColor:
         '#6d28d9',
       borderRadius: 13,
       paddingVertical: 14,
+      alignItems: 'center',
+    },
+
+    evaluateTripButton: {
+      backgroundColor:
+        '#6d28d9',
+      borderRadius: 13,
+      paddingVertical: 15,
       alignItems: 'center',
     },
 
@@ -965,7 +1600,8 @@ const styles =
       flexDirection: 'row',
       justifyContent:
         'space-between',
-      alignItems: 'flex-start',
+      alignItems:
+        'flex-start',
       marginBottom: 10,
     },
 

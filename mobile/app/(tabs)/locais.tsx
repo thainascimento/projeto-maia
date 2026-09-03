@@ -392,7 +392,7 @@ export default function LocaisScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>
-          EU BUSCO!
+          ROLÊ!
         </Text>
 
         <Text style={styles.title}>

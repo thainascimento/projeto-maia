@@ -14,13 +14,18 @@ public class GeocodingController {
     public GeocodingController(
             GeoapifyService geoapifyService
     ) {
-        this.geoapifyService = geoapifyService;
+        this.geoapifyService =
+                geoapifyService;
     }
 
     @GetMapping("/buscar")
-    public String buscar(
+    public GeocodingResponse buscar(
             @RequestParam String texto
     ) {
-        return geoapifyService.buscarLocalizacao(texto);
+
+        return geoapifyService
+                .buscarLocalizacao(
+                        texto
+                );
     }
 }

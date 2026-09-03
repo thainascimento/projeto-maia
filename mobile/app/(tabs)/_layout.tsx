@@ -41,16 +41,32 @@ export default function TabLayout() {
         }}
       />
 
-      {/* EU BUSCO */}
+      {/* EU VOU */}
       <Tabs.Screen
-        name="locais"
+        name="planejamento"
         options={{
-          title: 'EU BUSCO!',
-          tabBarLabel: 'EU BUSCO!',
+          title: 'EU VOU!',
+          tabBarLabel: 'EU VOU!',
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
               name="map.fill"
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* ROLÊ */}
+      <Tabs.Screen
+        name="locais"
+        options={{
+          title: 'ROLÊ!',
+          tabBarLabel: 'ROLÊ!',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol
+              size={28}
+              name="calendar"
               color={color}
             />
           ),
@@ -102,6 +118,23 @@ export default function TabLayout() {
               color={color}
             />
           ),
+        }}
+      />
+
+      {/* ROTA INTERNA - NÃO APARECE NA BARRA */}
+      <Tabs.Screen
+        name="viagens"
+        options={{
+          href: null,
+        }}
+      />
+
+      {/* Se explore.tsx não for uma aba,
+          também escondemos da barra. */}
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
