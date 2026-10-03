@@ -1,5 +1,7 @@
 package com.maia.backend.geocoding;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,18 +16,24 @@ public class GeocodingController {
     public GeocodingController(
             GeoapifyService geoapifyService
     ) {
-        this.geoapifyService =
-                geoapifyService;
+        this.geoapifyService = geoapifyService;
     }
 
     @GetMapping("/buscar")
     public GeocodingResponse buscar(
             @RequestParam String texto
     ) {
+        return geoapifyService.buscarLocalizacao(
+                texto
+        );
+    }
 
-        return geoapifyService
-                .buscarLocalizacao(
-                        texto
-                );
+    @GetMapping("/sugestoes")
+    public List<GeocodingSugestaoResponse> buscarSugestoes(
+            @RequestParam String texto
+    ) {
+        return geoapifyService.buscarSugestoes(
+                texto
+        );
     }
 }

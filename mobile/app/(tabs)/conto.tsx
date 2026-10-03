@@ -72,6 +72,70 @@ type Avaliacao = {
   criadaEm: string;
 };
 
+type AvaliacaoViagem = {
+  id: number;
+  viagemId: number;
+  usuarioId: number;
+
+  destino: string;
+
+  cidade: string | null;
+  estado: string | null;
+  pais: string | null;
+
+  dataInicio: string;
+  dataFim: string;
+
+  notaGeral: number;
+  seguranca: number;
+
+  viajariaSozinhaNovamente:
+    | boolean
+    | null;
+
+  facilidadeLocomocao:
+    | number
+    | null;
+
+  experienciaNoturna:
+    | string
+    | null;
+
+  estruturaTuristica:
+    | number
+    | null;
+
+  recomendariaParaMulherSozinha:
+    | boolean
+    | null;
+
+  melhorRegiaoHospedagem:
+    | string
+    | null;
+
+  pontosPositivos:
+    | string
+    | null;
+
+  pontosAtencao:
+    | string
+    | null;
+
+  sentiuInsegura:
+    | boolean
+    | null;
+
+  relatoInseguranca:
+    | string
+    | null;
+
+  comentario:
+    | string
+    | null;
+
+  criadaEm: string;
+};
+
 type ItemPendente =
   | {
       tipo: 'VIAGEM';
@@ -80,6 +144,16 @@ type ItemPendente =
   | {
       tipo: 'LOCAL';
       visita: Visita;
+    };
+
+type ItemAvaliacao =
+  | {
+      tipo: 'VIAGEM';
+      avaliacao: AvaliacaoViagem;
+    }
+  | {
+      tipo: 'LOCAL';
+      avaliacao: Avaliacao;
     };
 
 type Aba =
@@ -120,6 +194,14 @@ export default function ContoScreen() {
     >([]);
 
   const [
+    avaliacoesViagens,
+    setAvaliacoesViagens,
+  ] =
+    useState<
+      AvaliacaoViagem[]
+    >([]);
+
+  const [
     carregando,
     setCarregando,
   ] =
@@ -152,6 +234,7 @@ export default function ContoScreen() {
         setVisitas([]);
         setViagensPendentes([]);
         setAvaliacoes([]);
+        setAvaliacoesViagens([]);
 
         setErro(
           'Não foi possível identificar a usuária logada.'
@@ -164,6 +247,7 @@ export default function ContoScreen() {
         responseVisitasPendentes,
         responseViagensPendentes,
         responseAvaliacoes,
+        responseAvaliacoesViagens,
       ] =
         await Promise.all([
           fetch(
@@ -176,6 +260,10 @@ export default function ContoScreen() {
 
           fetch(
             `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`
+          ),
+
+          fetch(
+            `${API_URL}/avaliacoes-viagens/minhas?usuarioId=${usuario.id}`
           ),
         ]);
 
@@ -199,7 +287,15 @@ export default function ContoScreen() {
         !responseAvaliacoes.ok
       ) {
         throw new Error(
-          `Erro ao buscar avaliações: ${responseAvaliacoes.status}`
+          `Erro ao buscar avaliações de locais: ${responseAvaliacoes.status}`
+        );
+      }
+
+      if (
+        !responseAvaliacoesViagens.ok
+      ) {
+        throw new Error(
+          `Erro ao buscar avaliações de viagens: ${responseAvaliacoesViagens.status}`
         );
       }
 
@@ -215,6 +311,10 @@ export default function ContoScreen() {
         Avaliacao[] =
           await responseAvaliacoes.json();
 
+      const dadosAvaliacoesViagens:
+        AvaliacaoViagem[] =
+          await responseAvaliacoesViagens.json();
+
       console.log(
         'VISITAS PARA AVALIAR:',
         dadosVisitas
@@ -223,6 +323,16 @@ export default function ContoScreen() {
       console.log(
         'VIAGENS PARA AVALIAR:',
         dadosViagens
+      );
+
+      console.log(
+        'AVALIAÇÕES DE LOCAIS:',
+        dadosAvaliacoes
+      );
+
+      console.log(
+        'AVALIAÇÕES DE VIAGENS:',
+        dadosAvaliacoesViagens
       );
 
       setVisitas(
@@ -235,6 +345,10 @@ export default function ContoScreen() {
 
       setAvaliacoes(
         dadosAvaliacoes
+      );
+
+      setAvaliacoesViagens(
+        dadosAvaliacoesViagens
       );
     } catch (error) {
       console.error(
@@ -330,6 +444,26 @@ export default function ContoScreen() {
     );
   }
 
+  function formatarLocalAvaliacaoViagem(
+    avaliacao: AvaliacaoViagem
+  ) {
+    const partes = [
+      avaliacao.cidade,
+      avaliacao.estado,
+      avaliacao.pais,
+    ].filter(Boolean);
+
+    if (
+      partes.length === 0
+    ) {
+      return avaliacao.destino;
+    }
+
+    return partes.join(
+      ', '
+    );
+  }
+
   function formatarEntorno(
     percepcao?: string | null
   ) {
@@ -345,6 +479,27 @@ export default function ContoScreen() {
 
       case 'INSEGURO':
         return 'Inseguro';
+
+      default:
+        return 'Não informado';
+    }
+  }
+
+  function formatarExperienciaNoturna(
+    experiencia?: string | null
+  ) {
+    switch (experiencia) {
+      case 'TRANQUILA':
+        return 'Tranquila';
+
+      case 'COM_ATENCAO':
+        return 'Com atenção';
+
+      case 'EVITARIA':
+        return 'Eu evitaria';
+
+      case 'NAO_SAI':
+        return 'Não saí à noite';
 
       default:
         return 'Não informado';
@@ -380,6 +535,7 @@ export default function ContoScreen() {
         (viagem) => ({
           tipo:
             'VIAGEM' as const,
+
           viagem,
         })
       ),
@@ -388,7 +544,29 @@ export default function ContoScreen() {
         (visita) => ({
           tipo:
             'LOCAL' as const,
+
           visita,
+        })
+      ),
+    ];
+
+  const itensAvaliados:
+    ItemAvaliacao[] = [
+      ...avaliacoesViagens.map(
+        (avaliacao) => ({
+          tipo:
+            'VIAGEM' as const,
+
+          avaliacao,
+        })
+      ),
+
+      ...avaliacoes.map(
+        (avaliacao) => ({
+          tipo:
+            'LOCAL' as const,
+
+          avaliacao,
         })
       ),
     ];
@@ -722,8 +900,7 @@ export default function ContoScreen() {
                           styles.finishedBadgeText
                         }
                       >
-                        VIAGEM
-                        FINALIZADA
+                        VIAGEM FINALIZADA
                       </Text>
                     </View>
                   </View>
@@ -739,8 +916,7 @@ export default function ContoScreen() {
                       styles.label
                     }
                   >
-                    Período da
-                    viagem
+                    Período da viagem
                   </Text>
 
                   <Text
@@ -974,8 +1150,7 @@ export default function ContoScreen() {
                       styles.evaluateButtonText
                     }
                   >
-                    AVALIAR
-                    EXPERIÊNCIA
+                    AVALIAR EXPERIÊNCIA
                   </Text>
                 </Pressable>
               </View>
@@ -985,15 +1160,20 @@ export default function ContoScreen() {
       ) : (
         <FlatList
           data={
-            avaliacoes
+            itensAvaliados
           }
           keyExtractor={(
             item
-          ) =>
-            String(
-              item.id
-            )
-          }
+          ) => {
+            if (
+              item.tipo ===
+              'VIAGEM'
+            ) {
+              return `avaliacao-viagem-${item.avaliacao.id}`;
+            }
+
+            return `avaliacao-local-${item.avaliacao.id}`;
+          }}
           refreshControl={
             <RefreshControl
               refreshing={
@@ -1008,7 +1188,7 @@ export default function ContoScreen() {
             false
           }
           contentContainerStyle={
-            avaliacoes.length ===
+            itensAvaliados.length ===
             0
               ? styles.emptyList
               : styles.list
@@ -1051,183 +1231,591 @@ export default function ContoScreen() {
           }
           renderItem={({
             item,
-          }) => (
-            <View
-              style={
-                styles.evaluationCard
-              }
-            >
-              <View
-                style={
-                  styles.evaluationHeader
-                }
-              >
+          }) => {
+            if (
+              item.tipo ===
+              'VIAGEM'
+            ) {
+              const avaliacao =
+                item.avaliacao;
+
+              return (
                 <View
-                  style={
-                    styles.evaluationPlace
-                  }
+                  style={[
+                    styles.evaluationCard,
+                    styles.tripReviewedCard,
+                  ]}
                 >
-                  <Text
-                    style={
-                      styles.evaluationTitle
-                    }
-                  >
-                    {item.nomeLocal ||
-                      'Local não identificado'}
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.evaluationCategory
-                    }
-                  >
-                    {item.categoria ||
-                      'Categoria não informada'}
-                  </Text>
-                </View>
-
-                <View
-                  style={
-                    styles.evaluationBadge
-                  }
-                >
-                  <Text
-                    style={
-                      styles.evaluationBadgeText
-                    }
-                  >
-                    AVALIADO
-                  </Text>
-                </View>
-              </View>
-
-              <Text
-                style={
-                  styles.evaluationAddress
-                }
-              >
-                {item.endereco ||
-                  'Endereço não disponível'}
-              </Text>
-
-              <Text
-                style={
-                  styles.evaluationDate
-                }
-              >
-                Avaliado em{' '}
-
-                {formatarData(
-                  item.criadaEm
-                )}
-              </Text>
-
-              <Text
-                style={
-                  styles.stars
-                }
-              >
-                {renderEstrelas(
-                  item.notaGeral
-                )}
-              </Text>
-
-              <View
-                style={
-                  styles.evaluationInfo
-                }
-              >
-                <Text
-                  style={
-                    styles.evaluationLabel
-                  }
-                >
-                  Segurança
-                </Text>
-
-                <Text
-                  style={
-                    styles.evaluationValue
-                  }
-                >
-                  {item.seguranca}/5
-                </Text>
-              </View>
-
-              <View
-                style={
-                  styles.evaluationInfo
-                }
-              >
-                <Text
-                  style={
-                    styles.evaluationLabel
-                  }
-                >
-                  Iria sozinha
-                </Text>
-
-                <Text
-                  style={
-                    styles.evaluationValue
-                  }
-                >
-                  {item.iriaSozinha ===
-                  null
-                    ? 'Não informado'
-                    : item.iriaSozinha
-                    ? 'Sim'
-                    : 'Não'}
-                </Text>
-              </View>
-
-              <View
-                style={
-                  styles.evaluationInfoColumn
-                }
-              >
-                <Text
-                  style={
-                    styles.evaluationLabel
-                  }
-                >
-                  Entorno
-                </Text>
-
-                <Text
-                  style={
-                    styles.evaluationValue
-                  }
-                >
-                  {formatarEntorno(
-                    item.percepcaoEntorno
-                  )}
-                </Text>
-              </View>
-
-              {!!item.comentario && (
-                <>
                   <View
                     style={
-                      styles.divider
+                      styles.evaluationHeader
                     }
-                  />
+                  >
+                    <View
+                      style={
+                        styles.evaluationPlace
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.reviewType
+                        }
+                      >
+                        ✈️ DESTINO
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.evaluationTitle
+                        }
+                      >
+                        {
+                          avaliacao.destino
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.evaluationCategory
+                        }
+                      >
+                        {formatarLocalAvaliacaoViagem(
+                          avaliacao
+                        )}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={
+                        styles.evaluationBadge
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.evaluationBadgeText
+                        }
+                      >
+                        AVALIADO
+                      </Text>
+                    </View>
+                  </View>
 
                   <Text
                     style={
-                      styles.comment
+                      styles.evaluationDate
                     }
                   >
-                    “
-                    {
-                      item.comentario
-                    }
-                    ”
+                    Viagem de{' '}
+
+                    {formatarDataViagem(
+                      avaliacao.dataInicio
+                    )}
+
+                    {' até '}
+
+                    {formatarDataViagem(
+                      avaliacao.dataFim
+                    )}
                   </Text>
-                </>
-              )}
-            </View>
-          )}
+
+                  <Text
+                    style={
+                      styles.evaluationDate
+                    }
+                  >
+                    Avaliado em{' '}
+
+                    {formatarData(
+                      avaliacao.criadaEm
+                    )}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.stars
+                    }
+                  >
+                    {renderEstrelas(
+                      avaliacao.notaGeral
+                    )}
+                  </Text>
+
+                  <View
+                    style={
+                      styles.evaluationInfo
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Segurança
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {
+                        avaliacao.seguranca
+                      }
+                      /5
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationInfo
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Locomoção sem carro
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {avaliacao.facilidadeLocomocao ==
+                      null
+                        ? 'Não informado'
+                        : `${avaliacao.facilidadeLocomocao}/5`}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationInfo
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Estrutura turística
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {avaliacao.estruturaTuristica ==
+                      null
+                        ? 'Não informado'
+                        : `${avaliacao.estruturaTuristica}/5`}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationInfo
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Viajaria sozinha novamente
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {avaliacao.viajariaSozinhaNovamente ===
+                      null
+                        ? 'Não informado'
+                        : avaliacao.viajariaSozinhaNovamente
+                        ? 'Sim'
+                        : 'Não'}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationInfo
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Recomendaria para outra mulher
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {avaliacao.recomendariaParaMulherSozinha ===
+                      null
+                        ? 'Não informado'
+                        : avaliacao.recomendariaParaMulherSozinha
+                        ? 'Sim'
+                        : 'Não'}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationInfoColumn
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationLabel
+                      }
+                    >
+                      Experiência à noite
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationValue
+                      }
+                    >
+                      {formatarExperienciaNoturna(
+                        avaliacao.experienciaNoturna
+                      )}
+                    </Text>
+                  </View>
+
+                  {!!avaliacao.melhorRegiaoHospedagem && (
+                    <View
+                      style={
+                        styles.reviewSection
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.evaluationLabel
+                        }
+                      >
+                        Melhor região para se hospedar
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.reviewText
+                        }
+                      >
+                        {
+                          avaliacao.melhorRegiaoHospedagem
+                        }
+                      </Text>
+                    </View>
+                  )}
+
+                  {!!avaliacao.pontosPositivos && (
+                    <View
+                      style={
+                        styles.reviewSection
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.evaluationLabel
+                        }
+                      >
+                        Pontos positivos
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.reviewText
+                        }
+                      >
+                        {
+                          avaliacao.pontosPositivos
+                        }
+                      </Text>
+                    </View>
+                  )}
+
+                  {!!avaliacao.pontosAtencao && (
+                    <View
+                      style={
+                        styles.reviewSection
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.evaluationLabel
+                        }
+                      >
+                        Pontos de atenção
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.reviewText
+                        }
+                      >
+                        {
+                          avaliacao.pontosAtencao
+                        }
+                      </Text>
+                    </View>
+                  )}
+
+                  {avaliacao.sentiuInsegura ===
+                    true &&
+                    !!avaliacao.relatoInseguranca && (
+                      <View
+                        style={
+                          styles.attentionBox
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.attentionTitle
+                          }
+                        >
+                          Relato de insegurança
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.attentionText
+                          }
+                        >
+                          {
+                            avaliacao.relatoInseguranca
+                          }
+                        </Text>
+                      </View>
+                    )}
+
+                  {!!avaliacao.comentario && (
+                    <>
+                      <View
+                        style={
+                          styles.divider
+                        }
+                      />
+
+                      <Text
+                        style={
+                          styles.comment
+                        }
+                      >
+                        “
+                        {
+                          avaliacao.comentario
+                        }
+                        ”
+                      </Text>
+                    </>
+                  )}
+                </View>
+              );
+            }
+
+            const avaliacao =
+              item.avaliacao;
+
+            return (
+              <View
+                style={
+                  styles.evaluationCard
+                }
+              >
+                <View
+                  style={
+                    styles.evaluationHeader
+                  }
+                >
+                  <View
+                    style={
+                      styles.evaluationPlace
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.reviewType
+                      }
+                    >
+                      📍 LOCAL
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationTitle
+                      }
+                    >
+                      {avaliacao.nomeLocal ||
+                        'Local não identificado'}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.evaluationCategory
+                      }
+                    >
+                      {avaliacao.categoria ||
+                        'Categoria não informada'}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.evaluationBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.evaluationBadgeText
+                      }
+                    >
+                      AVALIADO
+                    </Text>
+                  </View>
+                </View>
+
+                <Text
+                  style={
+                    styles.evaluationAddress
+                  }
+                >
+                  {avaliacao.endereco ||
+                    'Endereço não disponível'}
+                </Text>
+
+                <Text
+                  style={
+                    styles.evaluationDate
+                  }
+                >
+                  Avaliado em{' '}
+
+                  {formatarData(
+                    avaliacao.criadaEm
+                  )}
+                </Text>
+
+                <Text
+                  style={
+                    styles.stars
+                  }
+                >
+                  {renderEstrelas(
+                    avaliacao.notaGeral
+                  )}
+                </Text>
+
+                <View
+                  style={
+                    styles.evaluationInfo
+                  }
+                >
+                  <Text
+                    style={
+                      styles.evaluationLabel
+                    }
+                  >
+                    Segurança
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.evaluationValue
+                    }
+                  >
+                    {
+                      avaliacao.seguranca
+                    }
+                    /5
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.evaluationInfo
+                  }
+                >
+                  <Text
+                    style={
+                      styles.evaluationLabel
+                    }
+                  >
+                    Iria sozinha
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.evaluationValue
+                    }
+                  >
+                    {avaliacao.iriaSozinha ===
+                    null
+                      ? 'Não informado'
+                      : avaliacao.iriaSozinha
+                      ? 'Sim'
+                      : 'Não'}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.evaluationInfoColumn
+                  }
+                >
+                  <Text
+                    style={
+                      styles.evaluationLabel
+                    }
+                  >
+                    Entorno
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.evaluationValue
+                    }
+                  >
+                    {formatarEntorno(
+                      avaliacao.percepcaoEntorno
+                    )}
+                  </Text>
+                </View>
+
+                {!!avaliacao.comentario && (
+                  <>
+                    <View
+                      style={
+                        styles.divider
+                      }
+                    />
+
+                    <Text
+                      style={
+                        styles.comment
+                      }
+                    >
+                      “
+                      {
+                        avaliacao.comentario
+                      }
+                      ”
+                    </Text>
+                  </>
+                )}
+              </View>
+            );
+          }}
         />
       )}
     </View>
@@ -1596,6 +2184,11 @@ const styles =
         '#e7e7ee',
     },
 
+    tripReviewedCard: {
+      borderColor:
+        '#ddd1ff',
+    },
+
     evaluationHeader: {
       flexDirection: 'row',
       justifyContent:
@@ -1608,6 +2201,14 @@ const styles =
     evaluationPlace: {
       flex: 1,
       marginRight: 12,
+    },
+
+    reviewType: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: '#6d28d9',
+      letterSpacing: 0.8,
+      marginBottom: 4,
     },
 
     evaluationTitle: {
@@ -1633,7 +2234,7 @@ const styles =
     evaluationDate: {
       fontSize: 11,
       color: '#888888',
-      marginBottom: 12,
+      marginBottom: 6,
     },
 
     evaluationBadge: {
@@ -1653,6 +2254,7 @@ const styles =
     stars: {
       fontSize: 23,
       color: '#6d28d9',
+      marginTop: 5,
       marginBottom: 14,
     },
 
@@ -1662,6 +2264,7 @@ const styles =
         'space-between',
       alignItems: 'center',
       marginBottom: 8,
+      gap: 10,
     },
 
     evaluationInfoColumn: {
@@ -1670,6 +2273,7 @@ const styles =
     },
 
     evaluationLabel: {
+      flexShrink: 1,
       fontSize: 12,
       color: '#888888',
       fontWeight: '700',
@@ -1680,6 +2284,38 @@ const styles =
       fontSize: 14,
       color: '#444444',
       fontWeight: '600',
+      textAlign: 'right',
+    },
+
+    reviewSection: {
+      marginTop: 12,
+    },
+
+    reviewText: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: '#444444',
+    },
+
+    attentionBox: {
+      marginTop: 12,
+      backgroundColor:
+        '#fff1f1',
+      borderRadius: 12,
+      padding: 12,
+    },
+
+    attentionTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: '#a33a3a',
+      marginBottom: 4,
+    },
+
+    attentionText: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: '#6d4545',
     },
 
     comment: {

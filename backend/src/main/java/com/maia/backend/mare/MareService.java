@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import tools.jackson.databind.ObjectMapper;
@@ -14,7 +15,21 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class MareService {
 
-    private final RestClient restClient;
+    /*
+     * Regra de produto da MAIA:
+     *
+     * A informação de maré só é considerada relevante
+     * quando existe uma linha costeira do OpenStreetMap
+     * em até 10 km das coordenadas do destino.
+     *
+     * Este valor NÃO representa um limite científico
+     * de influência da maré.
+     */
+    private static final int RAIO_COSTA_METROS = 10_000;
+
+    private final RestClient worldTidesClient;
+    private final RestClient overpassClient;
+
     private final ObjectMapper objectMapper;
 
     @Value("${worldtides.api.key}")
@@ -23,10 +38,18 @@ public class MareService {
     public MareService(
             ObjectMapper objectMapper
     ) {
-        this.restClient =
+
+        this.worldTidesClient =
                 RestClient.builder()
                         .baseUrl(
                                 "https://www.worldtides.info"
+                        )
+                        .build();
+
+        this.overpassClient =
+                RestClient.builder()
+                        .baseUrl(
+                                "https://overpass-api.de"
                         )
                         .build();
 
@@ -39,51 +62,124 @@ public class MareService {
             double longitude
     ) {
 
-        String respostaJson =
-                restClient
-                        .get()
-                        .uri(uriBuilder ->
-                                uriBuilder
-                                        .path(
-                                                "/api/v3"
-                                        )
-                                        .queryParam(
-                                                "extremes"
-                                        )
-                                        .queryParam(
-                                                "date",
-                                                "today"
-                                        )
-                                        .queryParam(
-                                                "days",
-                                                2
-                                        )
-                                        .queryParam(
-                                                "localtime"
-                                        )
-                                        .queryParam(
-                                                "lat",
-                                                latitude
-                                        )
-                                        .queryParam(
-                                                "lon",
-                                                longitude
-                                        )
-                                        .queryParam(
-                                                "key",
-                                                apiKey
-                                        )
-                                        .build()
-                        )
-                        .retrieve()
-                        .body(
-                                String.class
-                        );
+        /*
+         * PRIMEIRO:
+         *
+         * verificamos se o destino realmente está
+         * próximo de uma linha costeira.
+         *
+         * Não usamos a WorldTides para descobrir isso,
+         * porque ela pode gerar previsões mesmo para
+         * coordenadas interiores.
+         */
+        boolean costaProxima =
+                possuiCostaProxima(
+                        latitude,
+                        longitude
+                );
+
+        if (!costaProxima) {
+
+            System.out.println(
+                    "Maré não aplicável ao destino: "
+                            + latitude
+                            + ", "
+                            + longitude
+                            + ". Nenhuma linha costeira encontrada "
+                            + "em até "
+                            + (RAIO_COSTA_METROS / 1000)
+                            + " km."
+            );
+
+            return MareResponse.indisponivel();
+        }
+
+        /*
+         * Só chegamos à WorldTides se o destino
+         * passou pela validação costeira.
+         */
+        String respostaJson;
+
+        try {
+
+            respostaJson =
+                    worldTidesClient
+                            .get()
+                            .uri(uriBuilder ->
+                                    uriBuilder
+                                            .path(
+                                                    "/api/v3"
+                                            )
+                                            .queryParam(
+                                                    "extremes"
+                                            )
+                                            .queryParam(
+                                                    "date",
+                                                    "today"
+                                            )
+                                            .queryParam(
+                                                    "days",
+                                                    2
+                                            )
+                                            .queryParam(
+                                                    "localtime"
+                                            )
+                                            .queryParam(
+                                                    "lat",
+                                                    latitude
+                                            )
+                                            .queryParam(
+                                                    "lon",
+                                                    longitude
+                                            )
+                                            .queryParam(
+                                                    "key",
+                                                    apiKey
+                                            )
+                                            .build()
+                            )
+                            .retrieve()
+                            .body(
+                                    String.class
+                            );
+
+        } catch (
+                HttpClientErrorException.BadRequest e
+        ) {
+
+            String corpoResposta =
+                    e.getResponseBodyAsString();
+
+            /*
+             * Caso a WorldTides não encontre
+             * uma localização aplicável.
+             */
+            if (
+                    corpoResposta != null &&
+                    corpoResposta.contains(
+                            "No location found"
+                    )
+            ) {
+
+                System.out.println(
+                        "Maré indisponível para o destino: "
+                                + latitude
+                                + ", "
+                                + longitude
+                                + ". WorldTides: No location found."
+                );
+
+                return MareResponse.indisponivel();
+            }
+
+            throw e;
+        }
 
         if (
                 respostaJson == null ||
                 respostaJson.isBlank()
         ) {
+
             throw new RuntimeException(
                     "A WorldTides não retornou dados."
             );
@@ -113,6 +209,17 @@ public class MareService {
                                 "error"
                         );
 
+                if (
+                        erro != null &&
+                        erro.toString()
+                                .contains(
+                                        "No location found"
+                                )
+                ) {
+
+                    return MareResponse.indisponivel();
+                }
+
                 throw new RuntimeException(
                         erro != null
                                 ? erro.toString()
@@ -120,6 +227,13 @@ public class MareService {
                 );
             }
 
+            /*
+             * Mantemos essas coordenadas apenas
+             * como metadados da resposta.
+             *
+             * Elas NÃO são mais utilizadas para
+             * decidir se o destino é costeiro.
+             */
             Double responseLat =
                     obterDouble(
                             resposta,
@@ -166,6 +280,7 @@ public class MareService {
                             !(itemObj
                                     instanceof Map<?, ?> item)
                     ) {
+
                         continue;
                     }
 
@@ -195,6 +310,7 @@ public class MareService {
                     if (
                             dataHora == null
                     ) {
+
                         continue;
                     }
 
@@ -206,6 +322,22 @@ public class MareService {
                             )
                     );
                 }
+            }
+
+            /*
+             * Se a WorldTides não retornou eventos
+             * úteis, não mostramos card de maré.
+             */
+            if (
+                    eventos.isEmpty()
+            ) {
+
+                System.out.println(
+                        "Maré indisponível: nenhum evento "
+                                + "de maré foi retornado."
+                );
+
+                return MareResponse.indisponivel();
             }
 
             MareEventoResponse proximaMareBaixa =
@@ -220,30 +352,22 @@ public class MareService {
                             "ALTA"
                     );
 
-            return new MareResponse(
-                    responseLat != null
-                            ? responseLat
-                            : latitude,
-
-                    responseLon != null
-                            ? responseLon
-                            : longitude,
-
+            return MareResponse.disponivel(
+                    responseLat,
+                    responseLon,
                     estacao,
-
                     datum,
-
                     proximaMareBaixa,
-
                     proximaMareAlta,
-
                     eventos
             );
 
         } catch (RuntimeException e) {
+
             throw e;
 
         } catch (Exception e) {
+
             throw new RuntimeException(
                     "Erro ao processar dados de maré.",
                     e
@@ -251,6 +375,138 @@ public class MareService {
         }
     }
 
+    /*
+     * ============================================================
+     * VALIDAÇÃO DE PROXIMIDADE COM O LITORAL
+     * ============================================================
+     *
+     * Consulta o OpenStreetMap através da Overpass API.
+     *
+     * Procuramos ways com:
+     *
+     * natural=coastline
+     *
+     * dentro de um raio de 10 km da coordenada
+     * da viagem.
+     */
+    private boolean possuiCostaProxima(
+            double latitude,
+            double longitude
+    ) {
+
+        String consulta =
+                "[out:json][timeout:12];"
+                        + "way[\"natural\"=\"coastline\"]"
+                        + "(around:"
+                        + RAIO_COSTA_METROS
+                        + ","
+                        + latitude
+                        + ","
+                        + longitude
+                        + ");"
+                        + "out ids 1;";
+
+        try {
+
+            String respostaJson =
+                    overpassClient
+                            .get()
+                            .uri(uriBuilder ->
+                                    uriBuilder
+                                            .path(
+                                                    "/api/interpreter"
+                                            )
+                                            .queryParam(
+                                                    "data",
+                                                    consulta
+                                            )
+                                            .build()
+                            )
+                            .retrieve()
+                            .body(
+                                    String.class
+                            );
+
+            if (
+                    respostaJson == null ||
+                    respostaJson.isBlank()
+            ) {
+
+                System.out.println(
+                        "Overpass não retornou conteúdo "
+                                + "na validação costeira."
+                );
+
+                return false;
+            }
+
+            Map<?, ?> resposta =
+                    objectMapper.readValue(
+                            respostaJson,
+                            Map.class
+                    );
+
+            Object elementsObj =
+                    resposta.get(
+                            "elements"
+                    );
+
+            boolean encontrouCosta =
+                    elementsObj
+                            instanceof List<?> elements &&
+                    !elements.isEmpty();
+
+            if (encontrouCosta) {
+
+                System.out.println(
+                        "Linha costeira encontrada em até "
+                                + (RAIO_COSTA_METROS / 1000)
+                                + " km de "
+                                + latitude
+                                + ", "
+                                + longitude
+                );
+
+            } else {
+
+                System.out.println(
+                        "Nenhuma linha costeira encontrada em até "
+                                + (RAIO_COSTA_METROS / 1000)
+                                + " km de "
+                                + latitude
+                                + ", "
+                                + longitude
+                );
+            }
+
+            return encontrouCosta;
+
+        } catch (Exception e) {
+
+            /*
+             * FALHA SEGURA
+             *
+             * Se não conseguimos confirmar que existe
+             * litoral próximo, não mostramos maré.
+             *
+             * Isso é preferível a apresentar informação
+             * marítima incorreta para um destino interior.
+             */
+            System.out.println(
+                    "Não foi possível validar proximidade "
+                            + "com a costa: "
+                            + e.getMessage()
+            );
+
+            return false;
+        }
+    }
+
+    /*
+     * ============================================================
+     * ENCONTRAR PRÓXIMA MARÉ
+     * ============================================================
+     */
     private MareEventoResponse encontrarProximaMare(
             List<MareEventoResponse> eventos,
             String tipo
@@ -277,12 +533,14 @@ public class MareService {
                                     tipo
                             )
             ) {
+
                 continue;
             }
 
             if (
                     evento.dataHora() == null
             ) {
+
                 continue;
             }
 
@@ -294,11 +552,8 @@ public class MareService {
                         );
 
                 /*
-                 * Como os horários possuem
-                 * offset, podemos comparar
-                 * os instantes corretamente
-                 * mesmo que o destino esteja
-                 * em outro fuso.
+                 * Como os horários possuem offset,
+                 * comparamos os instantes absolutos.
                  */
                 if (
                         !horario
@@ -307,6 +562,7 @@ public class MareService {
                                         agora.toInstant()
                                 )
                 ) {
+
                     continue;
                 }
 
@@ -330,7 +586,8 @@ public class MareService {
             } catch (Exception e) {
 
                 System.out.println(
-                        "Não foi possível interpretar o horário da maré: "
+                        "Não foi possível interpretar "
+                                + "o horário da maré: "
                                 + evento.dataHora()
                 );
             }
@@ -339,11 +596,19 @@ public class MareService {
         return proxima;
     }
 
+    /*
+     * ============================================================
+     * CONVERTER TIPO DA WORLDTIDES
+     * ============================================================
+     */
     private String converterTipo(
             String tipo
     ) {
 
-        if (tipo == null) {
+        if (
+                tipo == null
+        ) {
+
             return "DESCONHECIDA";
         }
 
@@ -352,6 +617,7 @@ public class MareService {
                         "High"
                 )
         ) {
+
             return "ALTA";
         }
 
@@ -360,12 +626,18 @@ public class MareService {
                         "Low"
                 )
         ) {
+
             return "BAIXA";
         }
 
         return tipo.toUpperCase();
     }
 
+    /*
+     * ============================================================
+     * HELPERS JSON
+     * ============================================================
+     */
     private Double obterDouble(
             Map<?, ?> mapa,
             String chave
@@ -379,6 +651,7 @@ public class MareService {
         if (
                 valor instanceof Number numero
         ) {
+
             return numero.doubleValue();
         }
 
@@ -398,6 +671,7 @@ public class MareService {
         if (
                 valor instanceof Number numero
         ) {
+
             return numero.intValue();
         }
 

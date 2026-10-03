@@ -145,7 +145,9 @@ public class AvaliacaoViagemController {
                     );
         }
 
-        avaliacao.setId(null);
+        avaliacao.setId(
+                null
+        );
 
         AvaliacaoViagem avaliacaoSalva =
                 avaliacaoViagemRepository
@@ -161,20 +163,25 @@ public class AvaliacaoViagemController {
                 viagem
         );
 
+        AvaliacaoViagemResponse resposta =
+                montarResposta(
+                        avaliacaoSalva,
+                        viagem
+                );
+
         return ResponseEntity
                 .status(
                         HttpStatus.CREATED
                 )
                 .body(
-                        avaliacaoSalva
+                        resposta
                 );
     }
 
     @GetMapping("/pendentes")
-    public List<Viagem>
-            listarPendentes(
-                    @RequestParam Long usuarioId
-            ) {
+    public List<Viagem> listarPendentes(
+            @RequestParam Long usuarioId
+    ) {
 
         return viagemRepository
                 .findByUsuarioIdAndCanceladaFalseAndAvaliadaFalseOrderByDataFimDesc(
@@ -184,14 +191,14 @@ public class AvaliacaoViagemController {
                 .filter(
                         viagem ->
                                 viagem.getStatus()
-                                ==
+                                        ==
                                 StatusViagem.FINALIZADA
                 )
                 .toList();
     }
 
     @GetMapping("/minhas")
-    public List<AvaliacaoViagem>
+    public List<AvaliacaoViagemResponse>
             listarMinhasAvaliacoes(
                     @RequestParam Long usuarioId
             ) {
@@ -199,7 +206,34 @@ public class AvaliacaoViagemController {
         return avaliacaoViagemRepository
                 .findByUsuarioIdOrderByCriadaEmDesc(
                         usuarioId
-                );
+                )
+                .stream()
+                .map(
+                        avaliacao -> {
+
+                            Optional<Viagem> viagem =
+                                    viagemRepository
+                                            .findById(
+                                                    avaliacao.getViagemId()
+                                            );
+
+                            if (
+                                    viagem.isEmpty()
+                            ) {
+                                return null;
+                            }
+
+                            return montarResposta(
+                                    avaliacao,
+                                    viagem.get()
+                            );
+                        }
+                )
+                .filter(
+                        resposta ->
+                                resposta != null
+                )
+                .toList();
     }
 
     @GetMapping("/viagem/{viagemId}")
@@ -221,8 +255,88 @@ public class AvaliacaoViagemController {
                     .build();
         }
 
-        return ResponseEntity.ok(
-                avaliacao.get()
+        Optional<Viagem> viagem =
+                viagemRepository
+                        .findById(
+                                viagemId
+                        );
+
+        if (
+                viagem.isEmpty()
+        ) {
+            return ResponseEntity
+                    .status(
+                            HttpStatus.NOT_FOUND
+                    )
+                    .body(
+                            "Viagem não encontrada."
+                    );
+        }
+
+        AvaliacaoViagemResponse resposta =
+                montarResposta(
+                        avaliacao.get(),
+                        viagem.get()
+                );
+
+        return ResponseEntity
+                .ok(
+                        resposta
+                );
+    }
+
+    private AvaliacaoViagemResponse montarResposta(
+            AvaliacaoViagem avaliacao,
+            Viagem viagem
+    ) {
+
+        return new AvaliacaoViagemResponse(
+
+                avaliacao.getId(),
+
+                avaliacao.getViagemId(),
+
+                avaliacao.getUsuarioId(),
+
+                viagem.getDestino(),
+
+                viagem.getCidade(),
+
+                viagem.getEstado(),
+
+                viagem.getPais(),
+
+                viagem.getDataInicio(),
+
+                viagem.getDataFim(),
+
+                avaliacao.getNotaGeral(),
+
+                avaliacao.getSeguranca(),
+
+                avaliacao.getViajariaSozinhaNovamente(),
+
+                avaliacao.getFacilidadeLocomocao(),
+
+                avaliacao.getExperienciaNoturna(),
+
+                avaliacao.getEstruturaTuristica(),
+
+                avaliacao.getRecomendariaParaMulherSozinha(),
+
+                avaliacao.getMelhorRegiaoHospedagem(),
+
+                avaliacao.getPontosPositivos(),
+
+                avaliacao.getPontosAtencao(),
+
+                avaliacao.getSentiuInsegura(),
+
+                avaliacao.getRelatoInseguranca(),
+
+                avaliacao.getComentario(),
+
+                avaliacao.getCriadaEm()
         );
     }
 }

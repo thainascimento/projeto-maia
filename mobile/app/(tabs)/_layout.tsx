@@ -27,14 +27,15 @@ export default function TabLayout() {
     >
       {/* INÍCIO */}
       <Tabs.Screen
-        name="index"
+        name="inicio"
         options={{
           title: 'INÍCIO',
           tabBarLabel: 'INÍCIO',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
-              name="house.fill"
+              name="house"
               color={color}
             />
           ),
@@ -47,10 +48,11 @@ export default function TabLayout() {
         options={{
           title: 'EU VOU!',
           tabBarLabel: 'EU VOU!',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
-              name="map.fill"
+              name="airplane"
               color={color}
             />
           ),
@@ -63,10 +65,11 @@ export default function TabLayout() {
         options={{
           title: 'ROLÊ!',
           tabBarLabel: 'ROLÊ!',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={28}
-              name="calendar"
+              name="car"
               color={color}
             />
           ),
@@ -79,6 +82,7 @@ export default function TabLayout() {
         options={{
           title: 'maIA',
           tabBarLabel: 'maIA',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
@@ -95,29 +99,39 @@ export default function TabLayout() {
         options={{
           title: 'EU CONTO!',
           tabBarLabel: 'EU CONTO!',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
-              name="star.fill"
+              name="star"
               color={color}
             />
           ),
         }}
       />
 
-      {/* PERFIL */}
+      {/* SDD - que são as lembranças */}
       <Tabs.Screen
-        name="perfil"
+        name="sdd"
         options={{
-          title: 'PERFIL',
-          tabBarLabel: 'PERFIL',
+          title: 'SDD <3',
+          tabBarLabel: 'SDD <3',
+
           tabBarIcon: ({ color }) => (
             <IconSymbol
               size={27}
-              name="person.fill"
+              name="photo.on.rectangle.angled"
               color={color}
             />
           ),
+        }}
+      />
+
+      {/* PERFIL - ACESSADO PELA FOTO DA HOME */}
+      <Tabs.Screen
+        name="perfil"
+        options={{
+          href: null,
         }}
       />
 
@@ -129,8 +143,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Se explore.tsx não for uma aba,
-          também escondemos da barra. */}
+      {/* ROTA INTERNA - NÃO APARECE NA BARRA */}
       <Tabs.Screen
         name="explore"
         options={{

@@ -14,20 +14,18 @@ public class ClimaController {
     public ClimaController(
             ClimaService climaService
     ) {
-        this.climaService =
-                climaService;
+        this.climaService = climaService;
     }
 
     @GetMapping
     public ClimaResponse buscarClima(
-            @RequestParam double lat,
-            @RequestParam double lon
+            @RequestParam("lat") double latitude,
+            @RequestParam("lon") double longitude
     ) {
 
-        return climaService
-                .buscarClima(
-                        lat,
-                        lon
-                );
+        return climaService.buscarClima(
+                latitude,
+                longitude
+        );
     }
 }

@@ -68,13 +68,15 @@ public class PlanejamentoController {
         }
 
         if (
-                planejamento.getPrioridades() == null ||
-                planejamento.getPrioridades().isEmpty()
+                planejamento.getRequisitosIndispensaveis() == null ||
+                planejamento
+                        .getRequisitosIndispensaveis()
+                        .isBlank()
         ) {
             return ResponseEntity
                     .badRequest()
                     .body(
-                            "Informe pelo menos uma prioridade."
+                            "Informe o que é mais importante e não pode faltar na viagem."
                     );
         }
 

@@ -1,6 +1,8 @@
 package com.maia.backend.viagem;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -12,14 +14,19 @@ public class ViagemService {
     public ViagemService(
             ViagemRepository viagemRepository
     ) {
-        this.viagemRepository = viagemRepository;
+
+        this.viagemRepository =
+                viagemRepository;
     }
 
     public Viagem criarViagem(
             Viagem viagem
     ) {
 
-        if (viagem.getUsuarioId() == null) {
+        if (
+                viagem.getUsuarioId() == null
+        ) {
+
             throw new IllegalArgumentException(
                     "Usuária não informada."
             );
@@ -27,20 +34,28 @@ public class ViagemService {
 
         if (
                 viagem.getDestino() == null ||
-                viagem.getDestino().isBlank()
+                viagem.getDestino()
+                        .isBlank()
         ) {
+
             throw new IllegalArgumentException(
                     "O destino é obrigatório."
             );
         }
 
-        if (viagem.getDataInicio() == null) {
+        if (
+                viagem.getDataInicio() == null
+        ) {
+
             throw new IllegalArgumentException(
                     "A data de início é obrigatória."
             );
         }
 
-        if (viagem.getDataFim() == null) {
+        if (
+                viagem.getDataFim() == null
+        ) {
+
             throw new IllegalArgumentException(
                     "A data de fim é obrigatória."
             );
@@ -52,17 +67,24 @@ public class ViagemService {
                                 viagem.getDataInicio()
                         )
         ) {
+
             throw new IllegalArgumentException(
                     "A data de fim não pode ser anterior à data de início."
             );
         }
 
-        viagem.setId(null);
-        viagem.setCancelada(false);
-
-        return viagemRepository.save(
-                viagem
+        viagem.setId(
+                null
         );
+
+        viagem.setCancelada(
+                false
+        );
+
+        return viagemRepository
+                .save(
+                        viagem
+                );
     }
 
     public List<Viagem> listarPorUsuario(
@@ -72,6 +94,29 @@ public class ViagemService {
         return viagemRepository
                 .findByUsuarioIdOrderByDataInicioDesc(
                         usuarioId
+                );
+    }
+
+    public Optional<Viagem> buscarViagemAtiva(
+            Long usuarioId
+    ) {
+
+        if (
+                usuarioId == null
+        ) {
+
+            return Optional
+                    .empty();
+        }
+
+        LocalDate hoje =
+                LocalDate.now();
+
+        return viagemRepository
+                .findFirstByUsuarioIdAndCanceladaFalseAndDataInicioLessThanEqualAndDataFimGreaterThanEqualOrderByDataInicioDesc(
+                        usuarioId,
+                        hoje,
+                        hoje
                 );
     }
 }

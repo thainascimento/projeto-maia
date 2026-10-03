@@ -5,25 +5,16 @@ import java.util.List;
 public class PlanejamentoRequest {
 
     private Long usuarioId;
-
     private String origem;
-
     private String destino;
-
     private String periodo;
-
     private String orcamento;
-
     private String ritmoDestino;
-
     private String mobilidade;
-
     private List<String> interesses;
-
     private List<String> prioridades;
-
+    private List<String> requisitosSelecionados;
     private String observacoes;
-
     private String requisitosIndispensaveis;
 
     public PlanejamentoRequest() {
@@ -33,7 +24,9 @@ public class PlanejamentoRequest {
         return usuarioId;
     }
 
-    public void setUsuarioId(Long usuarioId) {
+    public void setUsuarioId(
+            Long usuarioId
+    ) {
         this.usuarioId = usuarioId;
     }
 
@@ -41,7 +34,9 @@ public class PlanejamentoRequest {
         return origem;
     }
 
-    public void setOrigem(String origem) {
+    public void setOrigem(
+            String origem
+    ) {
         this.origem = origem;
     }
 
@@ -49,7 +44,9 @@ public class PlanejamentoRequest {
         return destino;
     }
 
-    public void setDestino(String destino) {
+    public void setDestino(
+            String destino
+    ) {
         this.destino = destino;
     }
 
@@ -57,7 +54,9 @@ public class PlanejamentoRequest {
         return periodo;
     }
 
-    public void setPeriodo(String periodo) {
+    public void setPeriodo(
+            String periodo
+    ) {
         this.periodo = periodo;
     }
 
@@ -65,7 +64,9 @@ public class PlanejamentoRequest {
         return orcamento;
     }
 
-    public void setOrcamento(String orcamento) {
+    public void setOrcamento(
+            String orcamento
+    ) {
         this.orcamento = orcamento;
     }
 
@@ -73,7 +74,9 @@ public class PlanejamentoRequest {
         return ritmoDestino;
     }
 
-    public void setRitmoDestino(String ritmoDestino) {
+    public void setRitmoDestino(
+            String ritmoDestino
+    ) {
         this.ritmoDestino = ritmoDestino;
     }
 
@@ -81,7 +84,9 @@ public class PlanejamentoRequest {
         return mobilidade;
     }
 
-    public void setMobilidade(String mobilidade) {
+    public void setMobilidade(
+            String mobilidade
+    ) {
         this.mobilidade = mobilidade;
     }
 
@@ -89,7 +94,9 @@ public class PlanejamentoRequest {
         return interesses;
     }
 
-    public void setInteresses(List<String> interesses) {
+    public void setInteresses(
+            List<String> interesses
+    ) {
         this.interesses = interesses;
     }
 
@@ -97,15 +104,29 @@ public class PlanejamentoRequest {
         return prioridades;
     }
 
-    public void setPrioridades(List<String> prioridades) {
+    public void setPrioridades(
+            List<String> prioridades
+    ) {
         this.prioridades = prioridades;
+    }
+
+    public List<String> getRequisitosSelecionados() {
+        return requisitosSelecionados;
+    }
+
+    public void setRequisitosSelecionados(
+            List<String> requisitosSelecionados
+    ) {
+        this.requisitosSelecionados = requisitosSelecionados;
     }
 
     public String getObservacoes() {
         return observacoes;
     }
 
-    public void setObservacoes(String observacoes) {
+    public void setObservacoes(
+            String observacoes
+    ) {
         this.observacoes = observacoes;
     }
 
@@ -116,7 +137,6 @@ public class PlanejamentoRequest {
     public void setRequisitosIndispensaveis(
             String requisitosIndispensaveis
     ) {
-        this.requisitosIndispensaveis =
-                requisitosIndispensaveis;
+        this.requisitosIndispensaveis = requisitosIndispensaveis;
     }
 }

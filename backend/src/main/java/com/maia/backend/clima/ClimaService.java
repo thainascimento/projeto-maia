@@ -2,7 +2,10 @@ package com.maia.backend.clima;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +19,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class ClimaService {
 
+    private static final int HORAS_OPEN_METEO = 12;
+    private static final int ITENS_OPEN_WEATHER = 8;
+
     private final RestClient openMeteoClient;
     private final RestClient openWeatherClient;
     private final ObjectMapper objectMapper;
@@ -23,284 +29,111 @@ public class ClimaService {
     @Value("${openweather.api.key}")
     private String openWeatherApiKey;
 
-    public ClimaService(
-            ObjectMapper objectMapper
-    ) {
+    public ClimaService(ObjectMapper objectMapper) {
+        this.openMeteoClient = RestClient.builder()
+                .baseUrl("https://api.open-meteo.com")
+                .requestFactory(criarRequestFactory())
+                .build();
 
-        this.openMeteoClient =
-                RestClient.builder()
-                        .baseUrl(
-                                "https://api.open-meteo.com"
-                        )
-                        .requestFactory(
-                                criarRequestFactory()
-                        )
-                        .build();
+        this.openWeatherClient = RestClient.builder()
+                .baseUrl("https://api.openweathermap.org")
+                .requestFactory(criarRequestFactory())
+                .build();
 
-        this.openWeatherClient =
-                RestClient.builder()
-                        .baseUrl(
-                                "https://api.openweathermap.org"
-                        )
-                        .requestFactory(
-                                criarRequestFactory()
-                        )
-                        .build();
-
-        this.objectMapper =
-                objectMapper;
+        this.objectMapper = objectMapper;
     }
 
     private SimpleClientHttpRequestFactory criarRequestFactory() {
-
-        SimpleClientHttpRequestFactory requestFactory =
-                new SimpleClientHttpRequestFactory();
-
-        requestFactory.setConnectTimeout(
-                3000
-        );
-
-        requestFactory.setReadTimeout(
-                5000
-        );
-
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(3000);
+        requestFactory.setReadTimeout(5000);
         return requestFactory;
     }
 
-    public ClimaResponse buscarClima(
-            double latitude,
-            double longitude
-    ) {
-
+    public ClimaResponse buscarClima(double latitude, double longitude) {
         try {
-
-            System.out.println(
-                    "Tentando obter clima pela Open-Meteo..."
-            );
-
-            ClimaResponse clima =
-                    buscarClimaOpenMeteo(
-                            latitude,
-                            longitude
-                    );
-
-            System.out.println(
-                    "Clima obtido pela Open-Meteo."
-            );
-
+            System.out.println("Tentando obter clima pela Open-Meteo...");
+            ClimaResponse clima = buscarClimaOpenMeteo(latitude, longitude);
+            System.out.println("Clima obtido pela Open-Meteo.");
             return clima;
-
         } catch (RuntimeException e) {
-
-            System.out.println(
-                    "Open-Meteo falhou: "
-                            + e.getMessage()
-            );
-
-            System.out.println(
-                    "Tentando fallback pela OpenWeather..."
-            );
-
-            ClimaResponse clima =
-                    buscarClimaOpenWeather(
-                            latitude,
-                            longitude
-                    );
-
-            System.out.println(
-                    "Clima obtido pela OpenWeather."
-            );
-
+            System.out.println("Open-Meteo falhou: " + e.getMessage());
+            System.out.println("Tentando fallback pela OpenWeather...");
+            ClimaResponse clima = buscarClimaOpenWeather(latitude, longitude);
+            System.out.println("Clima obtido pela OpenWeather.");
             return clima;
         }
     }
 
-    // =========================================================
-    // OPEN-METEO
-    // =========================================================
+    private ClimaResponse buscarClimaOpenMeteo(double latitude, double longitude) {
+        String respostaJson = openMeteoClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/v1/forecast")
+                        .queryParam("latitude", latitude)
+                        .queryParam("longitude", longitude)
+                        .queryParam("current", String.join(",",
+                                "temperature_2m",
+                                "apparent_temperature",
+                                "weather_code",
+                                "wind_speed_10m",
+                                "wind_gusts_10m",
+                                "snowfall",
+                                "is_day"))
+                        .queryParam("hourly", String.join(",",
+                                "temperature_2m",
+                                "apparent_temperature",
+                                "precipitation_probability",
+                                "weather_code",
+                                "wind_speed_10m",
+                                "wind_gusts_10m"))
+                        .queryParam("daily", String.join(",",
+                                "temperature_2m_max",
+                                "temperature_2m_min",
+                                "precipitation_probability_max"))
+                        .queryParam("timezone", "auto")
+                        .queryParam("forecast_days", 2)
+                        .build())
+                .retrieve()
+                .body(String.class);
 
-    private ClimaResponse buscarClimaOpenMeteo(
-            double latitude,
-            double longitude
-    ) {
-
-        String respostaJson =
-                openMeteoClient
-                        .get()
-                        .uri(uriBuilder ->
-                                uriBuilder
-                                        .path(
-                                                "/v1/forecast"
-                                        )
-                                        .queryParam(
-                                                "latitude",
-                                                latitude
-                                        )
-                                        .queryParam(
-                                                "longitude",
-                                                longitude
-                                        )
-                                        .queryParam(
-                                                "current",
-                                                String.join(
-                                                        ",",
-                                                        "temperature_2m",
-                                                        "apparent_temperature",
-                                                        "weather_code",
-                                                        "wind_speed_10m",
-                                                        "wind_gusts_10m",
-                                                        "snowfall",
-                                                        "is_day"
-                                                )
-                                        )
-                                        .queryParam(
-                                                "daily",
-                                                String.join(
-                                                        ",",
-                                                        "temperature_2m_max",
-                                                        "temperature_2m_min",
-                                                        "precipitation_probability_max"
-                                                )
-                                        )
-                                        .queryParam(
-                                                "timezone",
-                                                "auto"
-                                        )
-                                        .queryParam(
-                                                "forecast_days",
-                                                1
-                                        )
-                                        .build()
-                        )
-                        .retrieve()
-                        .body(
-                                String.class
-                        );
-
-        if (
-                respostaJson == null ||
-                respostaJson.isBlank()
-        ) {
-            throw new RuntimeException(
-                    "Open-Meteo retornou resposta vazia."
-            );
-        }
-
-        String respostaLimpa =
-                respostaJson.trim();
-
-        if (
-                !respostaLimpa.startsWith(
-                        "{"
-                )
-        ) {
-            throw new RuntimeException(
-                    "Open-Meteo retornou resposta inválida: "
-                            + respostaLimpa
-            );
+        if (respostaJson == null || respostaJson.isBlank()) {
+            throw new RuntimeException("Open-Meteo retornou resposta vazia.");
         }
 
         try {
+            Map<?, ?> resposta = objectMapper.readValue(respostaJson.trim(), Map.class);
+            Object currentObj = resposta.get("current");
+            Object dailyObj = resposta.get("daily");
+            Object hourlyObj = resposta.get("hourly");
 
-            Map<?, ?> resposta =
-                    objectMapper.readValue(
-                            respostaLimpa,
-                            Map.class
-                    );
-
-            Object currentObj =
-                    resposta.get(
-                            "current"
-                    );
-
-            Object dailyObj =
-                    resposta.get(
-                            "daily"
-                    );
-
-            if (
-                    !(currentObj
-                            instanceof Map<?, ?> current)
-            ) {
-                throw new RuntimeException(
-                        "Open-Meteo não retornou clima atual."
-                );
+            if (!(currentObj instanceof Map<?, ?> current)) {
+                throw new RuntimeException("Open-Meteo não retornou clima atual.");
             }
 
-            Double temperatura =
-                    obterDouble(
-                            current,
-                            "temperature_2m"
-                    );
+            Double temperatura = obterDouble(current, "temperature_2m");
+            Double sensacaoTermica = obterDouble(current, "apparent_temperature");
+            Double vento = obterDouble(current, "wind_speed_10m");
+            Double rajadas = obterDouble(current, "wind_gusts_10m");
+            Double neve = obterDouble(current, "snowfall");
+            Integer codigoClima = obterInteger(current, "weather_code");
+            Integer isDay = obterInteger(current, "is_day");
 
-            Double sensacaoTermica =
-                    obterDouble(
-                            current,
-                            "apparent_temperature"
-                    );
+            Double temperaturaMaxima = null;
+            Double temperaturaMinima = null;
+            Integer probabilidadeChuva = null;
 
-            Double vento =
-                    obterDouble(
-                            current,
-                            "wind_speed_10m"
-                    );
-
-            Double rajadas =
-                    obterDouble(
-                            current,
-                            "wind_gusts_10m"
-                    );
-
-            Double neve =
-                    obterDouble(
-                            current,
-                            "snowfall"
-                    );
-
-            Integer codigoClima =
-                    obterInteger(
-                            current,
-                            "weather_code"
-                    );
-
-            Integer isDay =
-                    obterInteger(
-                            current,
-                            "is_day"
-                    );
-
-            Double temperaturaMaxima =
-                    null;
-
-            Double temperaturaMinima =
-                    null;
-
-            Integer probabilidadeChuva =
-                    null;
-
-            if (
-                    dailyObj
-                            instanceof Map<?, ?> daily
-            ) {
-
-                temperaturaMaxima =
-                        obterPrimeiroDouble(
-                                daily,
-                                "temperature_2m_max"
-                        );
-
-                temperaturaMinima =
-                        obterPrimeiroDouble(
-                                daily,
-                                "temperature_2m_min"
-                        );
-
-                probabilidadeChuva =
-                        obterPrimeiroInteger(
-                                daily,
-                                "precipitation_probability_max"
-                        );
+            if (dailyObj instanceof Map<?, ?> daily) {
+                temperaturaMaxima = obterPrimeiroDouble(daily, "temperature_2m_max");
+                temperaturaMinima = obterPrimeiroDouble(daily, "temperature_2m_min");
+                probabilidadeChuva = obterPrimeiroInteger(daily, "precipitation_probability_max");
             }
+
+            String timezone = obterString(resposta, "timezone");
+            Integer utcOffsetSegundos = obterInteger(resposta, "utc_offset_seconds");
+            LocalDateTime agoraLocal = obterDataHoraAtualOpenMeteo(current, utcOffsetSegundos);
+
+            List<ClimaResponse.PrevisaoHora> previsao =
+                    montarPrevisaoHorariaOpenMeteo(hourlyObj, agoraLocal);
 
             return new ClimaResponse(
                     temperatura,
@@ -312,268 +145,170 @@ public class ClimaService {
                     rajadas,
                     neve,
                     codigoClima,
-                    isDay
+                    isDay,
+                    timezone,
+                    utcOffsetSegundos,
+                    agoraLocal != null ? agoraLocal.toString() : null,
+                    identificarPeriodoDoDia(agoraLocal),
+                    previsao
             );
 
         } catch (RuntimeException e) {
             throw e;
-
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Erro ao processar resposta da Open-Meteo.",
-                    e
-            );
+            throw new RuntimeException("Erro ao processar resposta da Open-Meteo.", e);
         }
     }
 
-    // =========================================================
-    // OPENWEATHER
-    // =========================================================
-
-    private ClimaResponse buscarClimaOpenWeather(
-            double latitude,
-            double longitude
+    private LocalDateTime obterDataHoraAtualOpenMeteo(
+            Map<?, ?> current,
+            Integer utcOffsetSegundos
     ) {
+        String horarioAtual = obterString(current, "time");
 
-        /*
-         * Primeiro buscamos o clima atual.
-         */
-        String respostaAtualJson =
-                openWeatherClient
-                        .get()
-                        .uri(uriBuilder ->
-                                uriBuilder
-                                        .path(
-                                                "/data/2.5/weather"
-                                        )
-                                        .queryParam(
-                                                "lat",
-                                                latitude
-                                        )
-                                        .queryParam(
-                                                "lon",
-                                                longitude
-                                        )
-                                        .queryParam(
-                                                "appid",
-                                                openWeatherApiKey
-                                        )
-                                        .queryParam(
-                                                "units",
-                                                "metric"
-                                        )
-                                        .queryParam(
-                                                "lang",
-                                                "pt_br"
-                                        )
-                                        .build()
-                        )
-                        .retrieve()
-                        .body(
-                                String.class
-                        );
-
-        if (
-                respostaAtualJson == null ||
-                respostaAtualJson.isBlank()
-        ) {
-            throw new RuntimeException(
-                    "OpenWeather retornou resposta vazia."
-            );
-        }
-
-        try {
-
-            Map<?, ?> respostaAtual =
-                    objectMapper.readValue(
-                            respostaAtualJson,
-                            Map.class
-                    );
-
-            Object mainObj =
-                    respostaAtual.get(
-                            "main"
-                    );
-
-            Object windObj =
-                    respostaAtual.get(
-                            "wind"
-                    );
-
-            Object weatherObj =
-                    respostaAtual.get(
-                            "weather"
-                    );
-
-            Object sysObj =
-                    respostaAtual.get(
-                            "sys"
-                    );
-
-            if (
-                    !(mainObj
-                            instanceof Map<?, ?> main)
-            ) {
-                throw new RuntimeException(
-                        "OpenWeather não retornou dados principais."
-                );
-            }
-
-            Double temperatura =
-                    obterDouble(
-                            main,
-                            "temp"
-                    );
-
-            Double sensacaoTermica =
-                    obterDouble(
-                            main,
-                            "feels_like"
-                    );
-
-            /*
-             * Esses valores servem como fallback.
-             * Depois tentaremos obter mínima e máxima
-             * melhores usando /forecast.
-             */
-            Double temperaturaMinima =
-                    obterDouble(
-                            main,
-                            "temp_min"
-                    );
-
-            Double temperaturaMaxima =
-                    obterDouble(
-                            main,
-                            "temp_max"
-                    );
-
-            Double vento =
-                    null;
-
-            Double rajadas =
-                    null;
-
-            if (
-                    windObj
-                            instanceof Map<?, ?> wind
-            ) {
-
-                Double ventoMs =
-                        obterDouble(
-                                wind,
-                                "speed"
-                        );
-
-                Double rajadasMs =
-                        obterDouble(
-                                wind,
-                                "gust"
-                        );
-
-                /*
-                 * OpenWeather retorna m/s.
-                 * O frontend da MAIA trabalha
-                 * com km/h.
-                 */
-                if (
-                        ventoMs != null
-                ) {
-                    vento =
-                            ventoMs * 3.6;
-                }
-
-                if (
-                        rajadasMs != null
-                ) {
-                    rajadas =
-                            rajadasMs * 3.6;
-                }
-            }
-
-            Integer codigoClima =
-                    converterCodigoOpenWeather(
-                            weatherObj
-                    );
-
-            Integer isDay =
-                    calcularIsDayOpenWeather(
-                            respostaAtual,
-                            sysObj
-                    );
-
-            Double neve =
-                    obterPrecipitacao(
-                            respostaAtual,
-                            "snow"
-                    );
-
-            Integer probabilidadeChuva =
-                    null;
-
-            /*
-             * A propriedade timezone vem em
-             * segundos de diferença em relação
-             * ao UTC.
-             */
-            Integer timezoneOffset =
-                    obterInteger(
-                            respostaAtual,
-                            "timezone"
-                    );
-
-            /*
-             * Agora buscamos o forecast.
-             *
-             * É nele que existe o campo "pop",
-             * que representa probabilidade real
-             * de precipitação.
-             */
+        if (horarioAtual != null) {
             try {
+                return LocalDateTime.parse(horarioAtual);
+            } catch (DateTimeParseException ignored) {
+            }
+        }
 
-                DadosPrevisaoOpenWeather previsao =
-                        buscarPrevisaoOpenWeather(
-                                latitude,
-                                longitude,
-                                timezoneOffset
-                        );
+        if (utcOffsetSegundos != null) {
+            return Instant.now()
+                    .atOffset(ZoneOffset.ofTotalSeconds(utcOffsetSegundos))
+                    .toLocalDateTime();
+        }
 
-                if (
-                        previsao != null
-                ) {
+        return null;
+    }
 
-                    if (
-                            previsao.probabilidadeChuva() != null
-                    ) {
-                        probabilidadeChuva =
-                                previsao.probabilidadeChuva();
-                    }
+    private List<ClimaResponse.PrevisaoHora> montarPrevisaoHorariaOpenMeteo(
+            Object hourlyObj,
+            LocalDateTime agoraLocal
+    ) {
+        List<ClimaResponse.PrevisaoHora> previsoes = new ArrayList<>();
 
-                    if (
-                            previsao.temperaturaMinima() != null
-                    ) {
-                        temperaturaMinima =
-                                previsao.temperaturaMinima();
-                    }
+        if (!(hourlyObj instanceof Map<?, ?> hourly) || agoraLocal == null) {
+            return previsoes;
+        }
 
-                    if (
-                            previsao.temperaturaMaxima() != null
-                    ) {
-                        temperaturaMaxima =
-                                previsao.temperaturaMaxima();
-                    }
-                }
+        List<?> horarios = obterLista(hourly, "time");
+        List<?> temperaturas = obterLista(hourly, "temperature_2m");
+        List<?> sensacoes = obterLista(hourly, "apparent_temperature");
+        List<?> pops = obterLista(hourly, "precipitation_probability");
+        List<?> codigos = obterLista(hourly, "weather_code");
+        List<?> ventos = obterLista(hourly, "wind_speed_10m");
+        List<?> rajadas = obterLista(hourly, "wind_gusts_10m");
 
-            } catch (RuntimeException e) {
+        if (horarios == null) {
+            return previsoes;
+        }
 
-                /*
-                 * Se o forecast falhar,
-                 * NÃO derrubamos o clima atual.
-                 */
-                System.out.println(
-                        "Não foi possível obter previsão detalhada da OpenWeather: "
-                                + e.getMessage()
+        for (int i = 0; i < horarios.size() && previsoes.size() < HORAS_OPEN_METEO; i++) {
+            Object horarioObj = horarios.get(i);
+            if (!(horarioObj instanceof String horarioTexto)) {
+                continue;
+            }
+
+            LocalDateTime horario;
+            try {
+                horario = LocalDateTime.parse(horarioTexto);
+            } catch (DateTimeParseException e) {
+                continue;
+            }
+
+            if (!horario.isAfter(agoraLocal)) {
+                continue;
+            }
+
+            previsoes.add(new ClimaResponse.PrevisaoHora(
+                    horario.toString(),
+                    obterDoubleNaLista(temperaturas, i),
+                    obterDoubleNaLista(sensacoes, i),
+                    obterIntegerNaLista(pops, i),
+                    obterDoubleNaLista(ventos, i),
+                    obterDoubleNaLista(rajadas, i),
+                    obterIntegerNaLista(codigos, i)
+            ));
+        }
+
+        return previsoes;
+    }
+
+    private ClimaResponse buscarClimaOpenWeather(double latitude, double longitude) {
+        String respostaAtualJson = openWeatherClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/data/2.5/weather")
+                        .queryParam("lat", latitude)
+                        .queryParam("lon", longitude)
+                        .queryParam("appid", openWeatherApiKey)
+                        .queryParam("units", "metric")
+                        .queryParam("lang", "pt_br")
+                        .build())
+                .retrieve()
+                .body(String.class);
+
+        if (respostaAtualJson == null || respostaAtualJson.isBlank()) {
+            throw new RuntimeException("OpenWeather retornou resposta vazia.");
+        }
+
+        try {
+            Map<?, ?> respostaAtual = objectMapper.readValue(respostaAtualJson, Map.class);
+            Object mainObj = respostaAtual.get("main");
+            Object windObj = respostaAtual.get("wind");
+            Object weatherObj = respostaAtual.get("weather");
+            Object sysObj = respostaAtual.get("sys");
+
+            if (!(mainObj instanceof Map<?, ?> main)) {
+                throw new RuntimeException("OpenWeather não retornou dados principais.");
+            }
+
+            Double temperatura = obterDouble(main, "temp");
+            Double sensacaoTermica = obterDouble(main, "feels_like");
+            Double temperaturaMinima = obterDouble(main, "temp_min");
+            Double temperaturaMaxima = obterDouble(main, "temp_max");
+
+            Double vento = null;
+            Double rajadas = null;
+            if (windObj instanceof Map<?, ?> wind) {
+                Double ventoMs = obterDouble(wind, "speed");
+                Double rajadasMs = obterDouble(wind, "gust");
+                if (ventoMs != null) vento = ventoMs * 3.6;
+                if (rajadasMs != null) rajadas = rajadasMs * 3.6;
+            }
+
+            Integer codigoClima = converterCodigoOpenWeather(weatherObj);
+            Integer isDay = calcularIsDayOpenWeather(respostaAtual, sysObj);
+            Double neve = obterPrecipitacao(respostaAtual, "snow");
+            Integer timezoneOffset = obterInteger(respostaAtual, "timezone");
+            Integer timestampAtual = obterInteger(respostaAtual, "dt");
+            LocalDateTime agoraLocal = converterTimestampParaHorarioLocal(timestampAtual, timezoneOffset);
+
+            Integer probabilidadeChuva = null;
+            List<ClimaResponse.PrevisaoHora> previsaoProximasHoras = new ArrayList<>();
+
+            try {
+                DadosPrevisaoOpenWeather previsao = buscarPrevisaoOpenWeather(
+                        latitude,
+                        longitude,
+                        timezoneOffset,
+                        agoraLocal
                 );
+
+                if (previsao != null) {
+                    if (previsao.probabilidadeChuva() != null) {
+                        probabilidadeChuva = previsao.probabilidadeChuva();
+                    }
+                    if (previsao.temperaturaMinima() != null) {
+                        temperaturaMinima = previsao.temperaturaMinima();
+                    }
+                    if (previsao.temperaturaMaxima() != null) {
+                        temperaturaMaxima = previsao.temperaturaMaxima();
+                    }
+                    previsaoProximasHoras = previsao.previsaoProximasHoras();
+                }
+            } catch (RuntimeException e) {
+                System.out.println("Não foi possível obter previsão detalhada da OpenWeather: " + e.getMessage());
             }
 
             return new ClimaResponse(
@@ -586,604 +321,279 @@ public class ClimaService {
                     rajadas,
                     neve,
                     codigoClima,
-                    isDay
+                    isDay,
+                    formatarTimezoneOffset(timezoneOffset),
+                    timezoneOffset,
+                    agoraLocal != null ? agoraLocal.toString() : null,
+                    identificarPeriodoDoDia(agoraLocal),
+                    previsaoProximasHoras
             );
 
         } catch (RuntimeException e) {
             throw e;
-
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Erro ao processar resposta da OpenWeather.",
-                    e
-            );
+            throw new RuntimeException("Erro ao processar resposta da OpenWeather.", e);
         }
     }
-
-    // =========================================================
-    // FORECAST OPENWEATHER
-    // =========================================================
 
     private DadosPrevisaoOpenWeather buscarPrevisaoOpenWeather(
             double latitude,
             double longitude,
-            Integer timezoneOffset
+            Integer timezoneOffset,
+            LocalDateTime agoraLocal
     ) {
+        String respostaJson = openWeatherClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/data/2.5/forecast")
+                        .queryParam("lat", latitude)
+                        .queryParam("lon", longitude)
+                        .queryParam("appid", openWeatherApiKey)
+                        .queryParam("units", "metric")
+                        .queryParam("lang", "pt_br")
+                        .build())
+                .retrieve()
+                .body(String.class);
 
-        String respostaJson =
-                openWeatherClient
-                        .get()
-                        .uri(uriBuilder ->
-                                uriBuilder
-                                        .path(
-                                                "/data/2.5/forecast"
-                                        )
-                                        .queryParam(
-                                                "lat",
-                                                latitude
-                                        )
-                                        .queryParam(
-                                                "lon",
-                                                longitude
-                                        )
-                                        .queryParam(
-                                                "appid",
-                                                openWeatherApiKey
-                                        )
-                                        .queryParam(
-                                                "units",
-                                                "metric"
-                                        )
-                                        .queryParam(
-                                                "lang",
-                                                "pt_br"
-                                        )
-                                        .build()
-                        )
-                        .retrieve()
-                        .body(
-                                String.class
-                        );
-
-        if (
-                respostaJson == null ||
-                respostaJson.isBlank()
-        ) {
-            throw new RuntimeException(
-                    "Forecast da OpenWeather retornou resposta vazia."
-            );
+        if (respostaJson == null || respostaJson.isBlank()) {
+            throw new RuntimeException("Forecast da OpenWeather retornou resposta vazia.");
         }
 
         try {
-
-            Map<?, ?> resposta =
-                    objectMapper.readValue(
-                            respostaJson,
-                            Map.class
-                    );
-
-            Object listaObj =
-                    resposta.get(
-                            "list"
-                    );
-
-            if (
-                    !(listaObj
-                            instanceof List<?> lista)
-            ) {
-                throw new RuntimeException(
-                        "Forecast da OpenWeather não retornou lista de previsões."
-                );
+            Map<?, ?> resposta = objectMapper.readValue(respostaJson, Map.class);
+            Object listaObj = resposta.get("list");
+            if (!(listaObj instanceof List<?> lista)) {
+                throw new RuntimeException("Forecast da OpenWeather não retornou lista de previsões.");
             }
 
-            int offsetSegundos =
-                    timezoneOffset != null
-                            ? timezoneOffset
-                            : 0;
+            int offsetSegundos = timezoneOffset != null ? timezoneOffset : 0;
+            ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds(offsetSegundos);
+            LocalDateTime referenciaLocal = agoraLocal != null
+                    ? agoraLocal
+                    : Instant.now().atOffset(zoneOffset).toLocalDateTime();
+            LocalDate hojeDestino = referenciaLocal.toLocalDate();
 
-            ZoneOffset zoneOffset =
-                    ZoneOffset.ofTotalSeconds(
-                            offsetSegundos
-                    );
+            Double menorTemperatura = null;
+            Double maiorTemperatura = null;
+            Double maiorPop = null;
+            List<ClimaResponse.PrevisaoHora> previsaoProximasHoras = new ArrayList<>();
 
-            /*
-             * Dia atual no horário do destino.
-             */
-            LocalDate hojeDestino =
-                    Instant.now()
-                            .atOffset(
-                                    zoneOffset
-                            )
-                            .toLocalDate();
-
-            Double menorTemperatura =
-                    null;
-
-            Double maiorTemperatura =
-                    null;
-
-            Double maiorPop =
-                    null;
-
-            for (
-                    Object itemObj :
-                    lista
-            ) {
-
-                if (
-                        !(itemObj
-                                instanceof Map<?, ?> item)
-                ) {
+            for (Object itemObj : lista) {
+                if (!(itemObj instanceof Map<?, ?> item)) {
                     continue;
                 }
 
-                Integer timestamp =
-                        obterInteger(
-                                item,
-                                "dt"
-                        );
-
-                if (
-                        timestamp == null
-                ) {
+                Integer timestamp = obterInteger(item, "dt");
+                if (timestamp == null) {
                     continue;
                 }
 
-                LocalDate dataLocal =
-                        Instant
-                                .ofEpochSecond(
-                                        timestamp.longValue()
-                                )
-                                .atOffset(
-                                        zoneOffset
-                                )
-                                .toLocalDate();
+                LocalDateTime dataHoraLocal = Instant.ofEpochSecond(timestamp.longValue())
+                        .atOffset(zoneOffset)
+                        .toLocalDateTime();
 
-                /*
-                 * Só usamos previsões do dia
-                 * atual no destino.
-                 */
-                if (
-                        !dataLocal.equals(
-                                hojeDestino
-                        )
-                ) {
-                    continue;
-                }
+                if (dataHoraLocal.toLocalDate().equals(hojeDestino)) {
+                    Object itemMainObj = item.get("main");
+                    if (itemMainObj instanceof Map<?, ?> itemMain) {
+                        Double minima = obterDouble(itemMain, "temp_min");
+                        Double maxima = obterDouble(itemMain, "temp_max");
 
-                Object mainObj =
-                        item.get(
-                                "main"
-                        );
-
-                if (
-                        mainObj
-                                instanceof Map<?, ?> main
-                ) {
-
-                    Double minima =
-                            obterDouble(
-                                    main,
-                                    "temp_min"
-                            );
-
-                    Double maxima =
-                            obterDouble(
-                                    main,
-                                    "temp_max"
-                            );
-
-                    if (
-                            minima != null
-                    ) {
-
-                        if (
-                                menorTemperatura == null ||
-                                minima < menorTemperatura
-                        ) {
-                            menorTemperatura =
-                                    minima;
+                        if (minima != null && (menorTemperatura == null || minima < menorTemperatura)) {
+                            menorTemperatura = minima;
+                        }
+                        if (maxima != null && (maiorTemperatura == null || maxima > maiorTemperatura)) {
+                            maiorTemperatura = maxima;
                         }
                     }
 
-                    if (
-                            maxima != null
-                    ) {
-
-                        if (
-                                maiorTemperatura == null ||
-                                maxima > maiorTemperatura
-                        ) {
-                            maiorTemperatura =
-                                    maxima;
-                        }
+                    Double pop = obterDouble(item, "pop");
+                    if (pop != null && (maiorPop == null || pop > maiorPop)) {
+                        maiorPop = pop;
                     }
                 }
 
-                /*
-                 * POP = Probability Of Precipitation.
-                 *
-                 * O valor vem entre 0 e 1.
-                 *
-                 * Exemplo:
-                 * 0.67 = 67%
-                 */
-                Double pop =
-                        obterDouble(
-                                item,
-                                "pop"
-                        );
+                if (dataHoraLocal.isAfter(referenciaLocal)
+                        && previsaoProximasHoras.size() < ITENS_OPEN_WEATHER) {
+                    Object itemMainObj = item.get("main");
+                    Object itemWindObj = item.get("wind");
 
-                if (
-                        pop != null
-                ) {
+                    Double temp = null;
+                    Double sensacao = null;
+                    Double vento = null;
+                    Double rajadas = null;
 
-                    if (
-                            maiorPop == null ||
-                            pop > maiorPop
-                    ) {
-                        maiorPop =
-                                pop;
+                    if (itemMainObj instanceof Map<?, ?> itemMain) {
+                        temp = obterDouble(itemMain, "temp");
+                        sensacao = obterDouble(itemMain, "feels_like");
                     }
+
+                    if (itemWindObj instanceof Map<?, ?> itemWind) {
+                        Double ventoMs = obterDouble(itemWind, "speed");
+                        Double rajadasMs = obterDouble(itemWind, "gust");
+                        if (ventoMs != null) vento = ventoMs * 3.6;
+                        if (rajadasMs != null) rajadas = rajadasMs * 3.6;
+                    }
+
+                    Double pop = obterDouble(item, "pop");
+                    Integer popPercentual = pop != null
+                            ? limitarPercentual((int) Math.round(pop * 100))
+                            : null;
+
+                    previsaoProximasHoras.add(new ClimaResponse.PrevisaoHora(
+                            dataHoraLocal.toString(),
+                            temp,
+                            sensacao,
+                            popPercentual,
+                            vento,
+                            rajadas,
+                            converterCodigoOpenWeather(item.get("weather"))
+                    ));
                 }
             }
 
-            Integer probabilidadeChuva =
-                    null;
-
-            if (
-                    maiorPop != null
-            ) {
-
-                probabilidadeChuva =
-                        (int) Math.round(
-                                maiorPop * 100
-                        );
-
-                /*
-                 * Proteção extra para nunca
-                 * sair do intervalo 0–100.
-                 */
-                probabilidadeChuva =
-                        Math.max(
-                                0,
-                                Math.min(
-                                        100,
-                                        probabilidadeChuva
-                                )
-                        );
-            }
+            Integer probabilidadeChuva = maiorPop != null
+                    ? limitarPercentual((int) Math.round(maiorPop * 100))
+                    : null;
 
             return new DadosPrevisaoOpenWeather(
                     menorTemperatura,
                     maiorTemperatura,
-                    probabilidadeChuva
+                    probabilidadeChuva,
+                    previsaoProximasHoras
             );
 
         } catch (RuntimeException e) {
             throw e;
-
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Erro ao processar forecast da OpenWeather.",
-                    e
-            );
+            throw new RuntimeException("Erro ao processar forecast da OpenWeather.", e);
         }
     }
 
-    // =========================================================
-    // CONVERSÃO DE CÓDIGOS
-    // =========================================================
-
-    private Integer converterCodigoOpenWeather(
-            Object weatherObj
-    ) {
-
-        if (
-                !(weatherObj
-                        instanceof List<?> weatherList)
-                ||
-                weatherList.isEmpty()
-        ) {
+    private Integer converterCodigoOpenWeather(Object weatherObj) {
+        if (!(weatherObj instanceof List<?> weatherList) || weatherList.isEmpty()) {
             return 3;
         }
 
-        Object primeiro =
-                weatherList.get(
-                        0
-                );
-
-        if (
-                !(primeiro
-                        instanceof Map<?, ?> weather)
-        ) {
+        Object primeiro = weatherList.get(0);
+        if (!(primeiro instanceof Map<?, ?> weather)) {
             return 3;
         }
 
-        Integer id =
-                obterInteger(
-                        weather,
-                        "id"
-                );
-
-        if (
-                id == null
-        ) {
-            return 3;
-        }
-
-        /*
-         * Conversão aproximada dos códigos
-         * OpenWeather para códigos WMO
-         * utilizados pelo frontend.
-         */
-
-        if (
-                id >= 200 &&
-                id < 300
-        ) {
-            return 95;
-        }
-
-        if (
-                id >= 300 &&
-                id < 400
-        ) {
-            return 53;
-        }
-
-        if (
-                id >= 500 &&
-                id < 600
-        ) {
-            return 61;
-        }
-
-        if (
-                id >= 600 &&
-                id < 700
-        ) {
-            return 71;
-        }
-
-        if (
-                id >= 700 &&
-                id < 800
-        ) {
-            return 45;
-        }
-
-        if (
-                id == 800
-        ) {
-            return 0;
-        }
-
-        if (
-                id == 801 ||
-                id == 802
-        ) {
-            return 2;
-        }
-
-        if (
-                id >= 803 &&
-                id <= 804
-        ) {
-            return 3;
-        }
-
+        Integer id = obterInteger(weather, "id");
+        if (id == null) return 3;
+        if (id >= 200 && id < 300) return 95;
+        if (id >= 300 && id < 400) return 53;
+        if (id >= 500 && id < 600) return 61;
+        if (id >= 600 && id < 700) return 71;
+        if (id >= 700 && id < 800) return 45;
+        if (id == 800) return 0;
+        if (id == 801 || id == 802) return 2;
+        if (id >= 803 && id <= 804) return 3;
         return 3;
     }
 
-    // =========================================================
-    // DIA / NOITE
-    // =========================================================
-
-    private Integer calcularIsDayOpenWeather(
-            Map<?, ?> resposta,
-            Object sysObj
-    ) {
-
-        Integer agora =
-                obterInteger(
-                        resposta,
-                        "dt"
-                );
-
-        if (
-                agora == null ||
-                !(sysObj
-                        instanceof Map<?, ?> sys)
-        ) {
+    private Integer calcularIsDayOpenWeather(Map<?, ?> resposta, Object sysObj) {
+        Integer agora = obterInteger(resposta, "dt");
+        if (agora == null || !(sysObj instanceof Map<?, ?> sys)) {
             return null;
         }
 
-        Integer nascerSol =
-                obterInteger(
-                        sys,
-                        "sunrise"
-                );
-
-        Integer porSol =
-                obterInteger(
-                        sys,
-                        "sunset"
-                );
-
-        if (
-                nascerSol == null ||
-                porSol == null
-        ) {
+        Integer nascerSol = obterInteger(sys, "sunrise");
+        Integer porSol = obterInteger(sys, "sunset");
+        if (nascerSol == null || porSol == null) {
             return null;
         }
 
-        return (
-                agora >= nascerSol &&
-                agora < porSol
-        )
-                ? 1
-                : 0;
+        return agora >= nascerSol && agora < porSol ? 1 : 0;
     }
 
-    // =========================================================
-    // PRECIPITAÇÃO
-    // =========================================================
-
-    private Double obterPrecipitacao(
-            Map<?, ?> resposta,
-            String chave
-    ) {
-
-        Object precipitacaoObj =
-                resposta.get(
-                        chave
-                );
-
-        if (
-                !(precipitacaoObj
-                        instanceof Map<?, ?> precipitacao)
-        ) {
+    private Double obterPrecipitacao(Map<?, ?> resposta, String chave) {
+        Object precipitacaoObj = resposta.get(chave);
+        if (!(precipitacaoObj instanceof Map<?, ?> precipitacao)) {
             return 0.0;
         }
 
-        Double ultimaHora =
-                obterDouble(
-                        precipitacao,
-                        "1h"
-                );
+        Double ultimaHora = obterDouble(precipitacao, "1h");
+        if (ultimaHora != null) return ultimaHora;
 
-        if (
-                ultimaHora != null
-        ) {
-            return ultimaHora;
-        }
-
-        Double ultimasTresHoras =
-                obterDouble(
-                        precipitacao,
-                        "3h"
-                );
-
-        if (
-                ultimasTresHoras != null
-        ) {
-            return ultimasTresHoras;
-        }
+        Double ultimasTresHoras = obterDouble(precipitacao, "3h");
+        if (ultimasTresHoras != null) return ultimasTresHoras;
 
         return 0.0;
     }
 
-    // =========================================================
-    // HELPERS JSON
-    // =========================================================
-
-    private Double obterDouble(
-            Map<?, ?> mapa,
-            String chave
-    ) {
-
-        Object valor =
-                mapa.get(
-                        chave
-                );
-
-        if (
-                valor instanceof Number numero
-        ) {
-            return numero.doubleValue();
+    private LocalDateTime converterTimestampParaHorarioLocal(Integer timestamp, Integer utcOffsetSegundos) {
+        if (timestamp == null) {
+            return null;
         }
-
-        return null;
+        int offset = utcOffsetSegundos != null ? utcOffsetSegundos : 0;
+        return Instant.ofEpochSecond(timestamp.longValue())
+                .atOffset(ZoneOffset.ofTotalSeconds(offset))
+                .toLocalDateTime();
     }
 
-    private Integer obterInteger(
-            Map<?, ?> mapa,
-            String chave
-    ) {
-
-        Object valor =
-                mapa.get(
-                        chave
-                );
-
-        if (
-                valor instanceof Number numero
-        ) {
-            return numero.intValue();
-        }
-
-        return null;
+    private String identificarPeriodoDoDia(LocalDateTime dataHora) {
+        if (dataHora == null) return null;
+        int hora = dataHora.getHour();
+        if (hora >= 5 && hora < 12) return "MANHA";
+        if (hora >= 12 && hora < 18) return "TARDE";
+        return "NOITE";
     }
 
-    private Double obterPrimeiroDouble(
-            Map<?, ?> mapa,
-            String chave
-    ) {
-
-        Object valor =
-                mapa.get(
-                        chave
-                );
-
-        if (
-                valor instanceof List<?> lista &&
-                !lista.isEmpty()
-        ) {
-
-            Object primeiro =
-                    lista.get(
-                            0
-                    );
-
-            if (
-                    primeiro instanceof Number numero
-            ) {
-                return numero.doubleValue();
-            }
-        }
-
-        return null;
+    private String formatarTimezoneOffset(Integer offsetSegundos) {
+        if (offsetSegundos == null) return null;
+        ZoneOffset offset = ZoneOffset.ofTotalSeconds(offsetSegundos);
+        return "UTC" + offset.getId();
     }
 
-    private Integer obterPrimeiroInteger(
-            Map<?, ?> mapa,
-            String chave
-    ) {
-
-        Object valor =
-                mapa.get(
-                        chave
-                );
-
-        if (
-                valor instanceof List<?> lista &&
-                !lista.isEmpty()
-        ) {
-
-            Object primeiro =
-                    lista.get(
-                            0
-                    );
-
-            if (
-                    primeiro instanceof Number numero
-            ) {
-                return numero.intValue();
-            }
-        }
-
-        return null;
+    private Double obterDouble(Map<?, ?> mapa, String chave) {
+        Object valor = mapa.get(chave);
+        return valor instanceof Number numero ? numero.doubleValue() : null;
     }
 
-    // =========================================================
-    // DADOS INTERNOS DO FORECAST
-    // =========================================================
+    private Integer obterInteger(Map<?, ?> mapa, String chave) {
+        Object valor = mapa.get(chave);
+        return valor instanceof Number numero ? numero.intValue() : null;
+    }
+
+    private String obterString(Map<?, ?> mapa, String chave) {
+        Object valor = mapa.get(chave);
+        return valor instanceof String texto && !texto.isBlank() ? texto : null;
+    }
+
+    private List<?> obterLista(Map<?, ?> mapa, String chave) {
+        Object valor = mapa.get(chave);
+        return valor instanceof List<?> lista ? lista : null;
+    }
+
+    private Double obterPrimeiroDouble(Map<?, ?> mapa, String chave) {
+        return obterDoubleNaLista(obterLista(mapa, chave), 0);
+    }
+
+    private Integer obterPrimeiroInteger(Map<?, ?> mapa, String chave) {
+        return obterIntegerNaLista(obterLista(mapa, chave), 0);
+    }
+
+    private Double obterDoubleNaLista(List<?> lista, int indice) {
+        if (lista == null || indice < 0 || indice >= lista.size()) return null;
+        Object valor = lista.get(indice);
+        return valor instanceof Number numero ? numero.doubleValue() : null;
+    }
+
+    private Integer obterIntegerNaLista(List<?> lista, int indice) {
+        if (lista == null || indice < 0 || indice >= lista.size()) return null;
+        Object valor = lista.get(indice);
+        return valor instanceof Number numero ? numero.intValue() : null;
+    }
+
+    private int limitarPercentual(int valor) {
+        return Math.max(0, Math.min(100, valor));
+    }
 
     private record DadosPrevisaoOpenWeather(
             Double temperaturaMinima,
             Double temperaturaMaxima,
-            Integer probabilidadeChuva
+            Integer probabilidadeChuva,
+            List<ClimaResponse.PrevisaoHora> previsaoProximasHoras
     ) {
     }
 }

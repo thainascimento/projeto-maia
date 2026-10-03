@@ -74,6 +74,8 @@ type MareEvento = {
 };
 
 type Mare = {
+  disponivel: boolean;
+
   latitude: number | null;
   longitude: number | null;
   estacao: string | null;
@@ -83,6 +85,13 @@ type Mare = {
   proximaMareAlta: MareEvento | null;
 
   eventos: MareEvento[];
+};
+
+type AlertaCondicao = {
+  tipo: 'NEVE' | 'NEBLINA' | 'VENTO' | 'RAJADAS' | 'CHUVA' | 'TEMPESTADE';
+  titulo: string;
+  descricao: string;
+  icone: string;
 };
 
 type Filtro =
@@ -1315,6 +1324,32 @@ export default function ViagensScreen() {
       );
   }
 
+  function obterCondicoesRelevantes(clima: Clima): AlertaCondicao[] {
+    const condicoes: AlertaCondicao[] = [];
+    const codigo = clima.codigoClima;
+    const codigoNeve = codigo != null && ((codigo >= 71 && codigo <= 77) || (codigo >= 85 && codigo <= 86));
+
+    if (codigoNeve || (clima.neve != null && clima.neve > 0)) {
+      condicoes.push({ tipo: 'NEVE', titulo: 'Neve', descricao: 'Há ocorrência de neve nas condições atuais do destino.', icone: '❄️' });
+    }
+    if (codigo === 45 || codigo === 48) {
+      condicoes.push({ tipo: 'NEBLINA', titulo: 'Neblina', descricao: 'Há neblina no destino. A visibilidade pode estar reduzida.', icone: '🌫️' });
+    }
+    if (codigo != null && codigo >= 95) {
+      condicoes.push({ tipo: 'TEMPESTADE', titulo: 'Tempestade', descricao: 'Há condição de tempestade no destino.', icone: '⛈️' });
+    }
+    if (clima.probabilidadeChuva != null && clima.probabilidadeChuva >= 70) {
+      condicoes.push({ tipo: 'CHUVA', titulo: 'Alta chance de chuva', descricao: `${clima.probabilidadeChuva}% de probabilidade de chuva.`, icone: '🌧️' });
+    }
+    if (clima.vento != null && clima.vento >= 40) {
+      condicoes.push({ tipo: 'VENTO', titulo: 'Vento forte', descricao: `Vento de ${formatarNumero(clima.vento)} km/h no destino.`, icone: '💨' });
+    }
+    if (clima.rajadas != null && clima.rajadas >= 50) {
+      condicoes.push({ tipo: 'RAJADAS', titulo: 'Rajadas fortes', descricao: `Rajadas de até ${formatarNumero(clima.rajadas)} km/h.`, icone: '🌬️' });
+    }
+    return condicoes;
+  }
+
   function formatarDataHoraMare(
     dataHora?:
       | string
@@ -2061,6 +2096,9 @@ export default function ViagensScreen() {
         tipo
       );
 
+    const condicoesRelevantes =
+      obterCondicoesRelevantes(clima);
+
     return (
       <View
         style={[
@@ -2350,34 +2388,31 @@ export default function ViagensScreen() {
             </View>
           </View>
 
-          {clima.neve !=
-            null &&
-            clima.neve >
-              0 && (
-              <View
-                style={
-                  styles.snowBox
-                }
-              >
-                <Text
-                  style={
-                    styles.snowTitle
-                  }
-                >
-                  ❄️ Atenção à neve
-                </Text>
+          {condicoesRelevantes.length > 0 && (
+            <View style={styles.conditionsArea}>
+              <Text style={[styles.conditionsTitle, claro && styles.lightText]}>
+                CONDIÇÕES IMPORTANTES
+              </Text>
 
-                <Text
-                  style={
-                    styles.snowText
-                  }
+              {condicoesRelevantes.map((condicao, index) => (
+                <View
+                  key={`${condicao.tipo}-${index}`}
+                  style={[styles.conditionCard, claro && styles.conditionCardDark]}
                 >
-                  Há ocorrência de neve
-                  nas condições atuais
-                  deste destino.
-                </Text>
-              </View>
-            )}
+                  <Text style={styles.conditionIcon}>{condicao.icone}</Text>
+
+                  <View style={styles.conditionContent}>
+                    <Text style={[styles.conditionTitle, claro && styles.lightText]}>
+                      {condicao.titulo}
+                    </Text>
+                    <Text style={[styles.conditionDescription, claro && styles.lightSoftText]}>
+                      {condicao.descricao}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
     );
@@ -2432,6 +2467,13 @@ export default function ViagensScreen() {
       mares[
         item.id
       ];
+
+    if (
+      mare &&
+      !mare.disponivel
+    ) {
+      return null;
+    }
 
     if (
       !mare
@@ -3922,25 +3964,51 @@ const styles =
       fontWeight: '800',
     },
 
-    snowBox: {
-      backgroundColor:
-        'rgba(238,246,255,0.90)',
-      borderRadius: 11,
-      padding: 11,
-      marginTop: 10,
+    conditionsArea: {
+      marginTop: 18,
+      gap: 10,
     },
 
-    snowTitle: {
+    conditionsTitle: {
       fontSize: 12,
       fontWeight: '800',
-      color: '#355a7a',
-      marginBottom: 3,
+      letterSpacing: 1,
+      color: '#4b5563',
+      marginBottom: 2,
     },
 
-    snowText: {
-      fontSize: 11,
-      lineHeight: 17,
-      color: '#55728a',
+    conditionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 14,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.72)',
+      gap: 12,
+    },
+
+    conditionCardDark: {
+      backgroundColor: 'rgba(255,255,255,0.10)',
+    },
+
+    conditionIcon: {
+      fontSize: 25,
+    },
+
+    conditionContent: {
+      flex: 1,
+    },
+
+    conditionTitle: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#1f2937',
+    },
+
+    conditionDescription: {
+      marginTop: 3,
+      fontSize: 13,
+      lineHeight: 18,
+      color: '#6b7280',
     },
 
     tideCard: {
@@ -4239,7 +4307,7 @@ const styles =
     },
 
     starsLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
 
     starOne: {
@@ -4279,7 +4347,7 @@ const styles =
     },
 
     cloudLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
 
     cloudOne: {
@@ -4301,7 +4369,7 @@ const styles =
     },
 
     rainLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
 
     rainDrop: {
@@ -4314,7 +4382,7 @@ const styles =
     },
 
     snowLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
 
     snowFlake: {

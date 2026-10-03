@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
+
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,36 +11,68 @@ import { buscarUsuario } from '@/services/auth';
 
 export default function IndexScreen() {
   useEffect(() => {
-    verificarSessao();
+    void verificarSessao();
   }, []);
 
   async function verificarSessao() {
     try {
-      const usuario = await buscarUsuario();
+      const usuario =
+        await buscarUsuario();
 
-      if (usuario) {
-        router.replace('/(tabs)');
+      if (!usuario) {
+        router.replace(
+          '/login'
+        );
+
+        return;
+      }
+
+      if (
+        usuario.perfilCompleto
+      ) {
+        router.replace(
+          '/(tabs)/inicio'
+        );
       } else {
-        router.replace('/login');
+        router.replace(
+          '/(tabs)/perfil'
+        );
       }
     } catch (error) {
-      console.error('Erro ao verificar sessão:', error);
-      router.replace('/login');
+      console.error(
+        'Erro ao verificar sessão:',
+        error
+      );
+
+      router.replace(
+        '/login'
+      );
     }
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" />
+    <View
+      style={
+        styles.container
+      }
+    >
+      <ActivityIndicator
+        size="large"
+        color="#6d28d9"
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-  },
-});
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent:
+        'center',
+      alignItems:
+        'center',
+      backgroundColor:
+        '#ffffff',
+    },
+  });
