@@ -1,3 +1,4 @@
+
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 
@@ -7,7 +8,10 @@ import {
   View,
 } from 'react-native';
 
-import { buscarUsuario } from '@/services/auth';
+import {
+  buscarToken,
+  buscarUsuario,
+} from '@/services/auth';
 
 export default function IndexScreen() {
   useEffect(() => {
@@ -16,27 +20,21 @@ export default function IndexScreen() {
 
   async function verificarSessao() {
     try {
-      const usuario =
-        await buscarUsuario();
+      const [token, usuario] =
+        await Promise.all([
+          buscarToken(),
+          buscarUsuario(),
+        ]);
 
-      if (!usuario) {
-        router.replace(
-          '/login'
-        );
-
+      if (!token || !usuario?.id) {
+        router.replace('/login');
         return;
       }
 
-      if (
-        usuario.perfilCompleto
-      ) {
-        router.replace(
-          '/(tabs)/inicio'
-        );
+      if (usuario.perfilCompleto) {
+        router.replace('/(tabs)/inicio');
       } else {
-        router.replace(
-          '/(tabs)/perfil'
-        );
+        router.replace('/perfil');
       }
     } catch (error) {
       console.error(
@@ -44,17 +42,13 @@ export default function IndexScreen() {
         error
       );
 
-      router.replace(
-        '/login'
-      );
+      router.replace('/login');
     }
   }
 
   return (
     <View
-      style={
-        styles.container
-      }
+      style={styles.container}
     >
       <ActivityIndicator
         size="large"
@@ -64,15 +58,11 @@ export default function IndexScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      justifyContent:
-        'center',
-      alignItems:
-        'center',
-      backgroundColor:
-        '#ffffff',
-    },
-  });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+});

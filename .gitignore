@@ -1,0 +1,32 @@
+
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Variaveis de ambiente e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Expo e React Native
+.expo/
+.expo-shared/
+dist/
+build/
+
+# Java / Spring Boot
+target/
+.gradle/
+*.class
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+*.backup.json
+backend/uploads/

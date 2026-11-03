@@ -1,3 +1,4 @@
+
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -9,6 +10,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+
         tabBarButton: HapticTab,
 
         tabBarStyle: {
@@ -36,7 +38,11 @@ export default function TabLayout() {
             <IconSymbol
               size={27}
               name="house"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
@@ -53,7 +59,11 @@ export default function TabLayout() {
             <IconSymbol
               size={27}
               name="airplane"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
@@ -70,7 +80,11 @@ export default function TabLayout() {
             <IconSymbol
               size={28}
               name="car"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
@@ -87,7 +101,11 @@ export default function TabLayout() {
             <IconSymbol
               size={27}
               name="sparkles"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
@@ -104,13 +122,17 @@ export default function TabLayout() {
             <IconSymbol
               size={27}
               name="star"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
       />
 
-      {/* SDD - que são as lembranças */}
+      {/* SDD - LEMBRANÇAS */}
       <Tabs.Screen
         name="sdd"
         options={{
@@ -121,29 +143,17 @@ export default function TabLayout() {
             <IconSymbol
               size={27}
               name="photo.on.rectangle.angled"
-              color={color}
+              color={
+                typeof color === 'string'
+                  ? color
+                  : '#888888'
+              }
             />
           ),
         }}
       />
 
-      {/* PERFIL - ACESSADO PELA FOTO DA HOME */}
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          href: null,
-        }}
-      />
-
-      {/* ROTA INTERNA - NÃO APARECE NA BARRA */}
-      <Tabs.Screen
-        name="viagens"
-        options={{
-          href: null,
-        }}
-      />
-
-      {/* ROTA INTERNA - NÃO APARECE NA BARRA */}
+      {/* ROTA INTERNA */}
       <Tabs.Screen
         name="explore"
         options={{

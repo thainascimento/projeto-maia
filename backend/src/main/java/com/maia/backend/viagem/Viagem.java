@@ -1,3 +1,4 @@
+
 package com.maia.backend.viagem;
 
 import java.time.LocalDate;
@@ -46,6 +47,9 @@ public class Viagem {
     private boolean cancelada = false;
 
     @Column(nullable = false)
+    private boolean finalizadaManualmente = false;
+
+    @Column(nullable = false)
     private LocalDateTime criadaEm;
 
     @Column(nullable = false)
@@ -65,6 +69,10 @@ public class Viagem {
 
     @Transient
     public StatusViagem getStatus() {
+
+        if (finalizadaManualmente) {
+            return StatusViagem.FINALIZADA;
+        }
 
         if (cancelada) {
             return StatusViagem.CANCELADA;
@@ -161,7 +169,7 @@ public class Viagem {
             Double latitude
     ) {
         this.latitude =
-                latitude;
+            latitude;
     }
 
     public Double getLongitude() {
@@ -206,6 +214,17 @@ public class Viagem {
     ) {
         this.cancelada =
                 cancelada;
+    }
+
+    public boolean isFinalizadaManualmente() {
+        return finalizadaManualmente;
+    }
+
+    public void setFinalizadaManualmente(
+            boolean finalizadaManualmente
+    ) {
+        this.finalizadaManualmente =
+                finalizadaManualmente;
     }
 
     public LocalDateTime getCriadaEm() {

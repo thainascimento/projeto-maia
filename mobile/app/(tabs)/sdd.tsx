@@ -1,5 +1,5 @@
 import { API_URL } from '@/services/api';
-import { buscarUsuario } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
 
 import {
   router,
@@ -45,6 +45,7 @@ type Viagem = {
 
   cancelada: boolean;
   avaliada?: boolean;
+  status: 'PLANEJADA' | 'EM_ANDAMENTO' | 'FINALIZADA' | 'CANCELADA';
 
   criadaEm?: string | null;
 };
@@ -148,10 +149,18 @@ export default function SddScreen() {
         return;
       }
 
-      const response =
-        await fetch(
-          `${API_URL}/viagens?usuarioId=${usuario.id}`
-        );
+      const headers = await obterHeadersAutenticacao();
+
+      const response = await fetch(
+        `${API_URL}/viagens?usuarioId=${usuario.id}`,
+        {
+          method: 'GET',
+          headers: {
+            ...headers,
+            Accept: 'application/json',
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(
@@ -236,38 +245,13 @@ export default function SddScreen() {
     });
   }
 
-  const viagensFinalizadas =
+    const viagensFinalizadas =
     useMemo(() => {
-      const hoje =
-        new Date();
-
-      hoje.setHours(
-        0,
-        0,
-        0,
-        0
-      );
-
       return viagens
         .filter(
-          viagem => {
-            if (
-              !viagem.dataFim
-            ) {
-              return false;
-            }
-
-            const dataFim =
-              converterDataLocal(
-                viagem.dataFim
-              );
-
-            return (
-              dataFim.getTime() <
-                hoje.getTime() &&
-              !viagem.cancelada
-            );
-          }
+          viagem =>
+            viagem.status === 'FINALIZADA' &&
+            !viagem.cancelada
         )
         .sort(
           (a, b) =>

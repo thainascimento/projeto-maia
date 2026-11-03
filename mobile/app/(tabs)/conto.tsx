@@ -1,5 +1,5 @@
 import { API_URL } from '@/services/api';
-import { buscarUsuario } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 
@@ -243,29 +243,39 @@ export default function ContoScreen() {
         return;
       }
 
+      const headers = await obterHeadersAutenticacao();
+
+      const opcoesRequisicao = {
+        method: 'GET',
+        headers: {
+          ...headers,
+          Accept: 'application/json',
+        },
+      };
+
       const [
         responseVisitasPendentes,
         responseViagensPendentes,
         responseAvaliacoes,
         responseAvaliacoesViagens,
-      ] =
-        await Promise.all([
-          fetch(
-            `${API_URL}/visitas/pendentes?usuarioId=${usuario.id}`
-          ),
-
-          fetch(
-            `${API_URL}/avaliacoes-viagens/pendentes?usuarioId=${usuario.id}`
-          ),
-
-          fetch(
-            `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`
-          ),
-
-          fetch(
-            `${API_URL}/avaliacoes-viagens/minhas?usuarioId=${usuario.id}`
-          ),
-        ]);
+      ] = await Promise.all([
+        fetch(
+          `${API_URL}/visitas/pendentes?usuarioId=${usuario.id}`,
+          opcoesRequisicao
+        ),
+        fetch(
+          `${API_URL}/avaliacoes-viagens/pendentes?usuarioId=${usuario.id}`,
+          opcoesRequisicao
+        ),
+        fetch(
+          `${API_URL}/avaliacoes/minhas?usuarioId=${usuario.id}`,
+          opcoesRequisicao
+        ),
+        fetch(
+          `${API_URL}/avaliacoes-viagens/minhas?usuarioId=${usuario.id}`,
+          opcoesRequisicao
+        ),
+      ]);
 
       if (
         !responseVisitasPendentes.ok

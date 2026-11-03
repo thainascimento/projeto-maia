@@ -55,9 +55,9 @@ public class IAController {
         this.usuarioRepository = usuarioRepository;
     }
 
-    // =========================================================
+
     // TESTE DA IA
-    // =========================================================
+
 
     @GetMapping("/teste")
     public ResponseEntity<?> testarIA() {
@@ -75,9 +75,9 @@ public class IAController {
     }
 
 
-    // =========================================================
+
     // INTERPRETAÇÃO DE INTENÇÃO
-    // =========================================================
+
 
     @PostMapping("/interpretar")
     public ResponseEntity<?> interpretar(
@@ -127,9 +127,9 @@ public class IAController {
         );
     }
 
-    // =========================================================
+
     // CONVERSA COM A maIA
-    // =========================================================
+
 
     @PostMapping("/conversar")
     public ResponseEntity<?> conversar(
@@ -157,10 +157,6 @@ public class IAController {
                     buscarContextoUsuario(
                             request.usuarioId()
                     );
-
-            // =====================================================
-            // INTERPRETAÇÃO DE INTENÇÃO
-            // =====================================================
 
             /*
              * A Groq interpreta a linguagem natural.
@@ -251,19 +247,10 @@ public class IAController {
                         usaSomenteResultadosAnteriores
                 ) {
 
-                    pediuDestinoViagem =
-                            false;
-
                     pediuLocalizacaoAtual =
                             false;
 
                 } else {
-
-                    pediuDestinoViagem =
-                            "DESTINO_VIAGEM".equals(
-                                    interpretacao.referenciaGeografica()
-                            );
-
                     pediuLocalizacaoAtual =
                             "GPS_ATUAL".equals(
                                     interpretacao.referenciaGeografica()
@@ -340,9 +327,9 @@ public class IAController {
                 );
             }
 
-            // =====================================================
+
             // CONFIRMAÇÃO DE ACESSO À LOCALIZAÇÃO ATUAL
-            // =====================================================
+
 
             /*
              * Se as coordenadas chegaram nesta requisição e a usuária
@@ -363,9 +350,9 @@ public class IAController {
                 );
             }
 
-            // =====================================================
+
             // NOME DA LOCALIZAÇÃO ATUAL
-            // =====================================================
+
 
             /*
              * Quando a pergunta for especificamente sobre o nome da
@@ -416,9 +403,9 @@ public class IAController {
                 );
             }
 
-            // =====================================================
+
             // COORDENADAS DE REFERÊNCIA
-            // =====================================================
+
 
             Double latitudeReferencia =
                     usaSomenteResultadosAnteriores
@@ -462,9 +449,9 @@ public class IAController {
             System.out.println(
                     "=================================================");
 
-            // =====================================================
+
             // CLIMA
-            // =====================================================
+
 
             ClimaResponse climaAtual =
                     usaSomenteResultadosAnteriores
@@ -478,9 +465,9 @@ public class IAController {
                                     request.longitudeAtual()
                             );
 
-            // =====================================================
+
             // RESPOSTA RÁPIDA PARA TEMPERATURA
-            // =====================================================
+
 
             /*
              * Perguntas simples de temperatura não precisam de uma segunda
@@ -520,9 +507,9 @@ public class IAController {
                 }
             }
 
-            // =====================================================
+
             // MARÉ
-            // =====================================================
+
 
             MareResponse mareAtual =
                     usaSomenteResultadosAnteriores
@@ -532,9 +519,9 @@ public class IAController {
                                     viagemAtiva
                             );
 
-            // =====================================================
+
             // LOCAIS / ROLÊ!
-            // =====================================================
+
 
             List<String> categoriasLocaisConsultadas;
 
@@ -568,11 +555,6 @@ public class IAController {
                         );
             }
 
-            boolean buscaLocaisRealizada =
-                    !categoriasLocaisConsultadas.isEmpty()
-                            && latitudeReferencia != null
-                            && longitudeReferencia != null;
-
             List<LocalResponse> todosLocaisReais;
                 List<LocalResponse> locaisReais;
 
@@ -590,9 +572,9 @@ public class IAController {
                                 interpretacao.intencao()
                         );
 
-                // =====================================================
+
                 // FOLLOW-UP: MAIS RESULTADOS
-                // =====================================================
+
 
                 if (
                         pediuMaisResultados &&
@@ -636,9 +618,9 @@ public class IAController {
                                 );
                 }
 
-                // =====================================================
+
                 // FOLLOW-UP: COMPARAR / DETALHAR
-                // =====================================================
+
 
                 } else if (
                         usaSomenteResultadosAnteriores &&
@@ -662,57 +644,33 @@ public class IAController {
                                 ? interpretacao.escopoResultados()
                                 : "NENHUM";
 
-                if (
-                        "TODOS_RESULTADOS".equals(
-                                escopoResultados
-                        )
-                ) {
-
-                    locaisReais =
-                            todosLocaisReais;
-
-                } else if (
-                        "PRIMEIRA_PAGINA".equals(
-                                escopoResultados
-                        )
-                ) {
-
-                    locaisReais =
-                            obterPaginaLocais(
-                                    todosLocaisReais,
-                                    0
-                            );
-
-                } else if (
-                        "PAGINA_ANTERIOR".equals(
-                                escopoResultados
-                        )
-                ) {
-
-                    int paginaAnterior =
-                            Math.max(
-                                    0,
-                                    paginaLocaisAtual - 1
-                            );
-
-                    locaisReais =
-                            obterPaginaLocais(
-                                    todosLocaisReais,
-                                    paginaAnterior
-                            );
-
-                } else {
-
-                    /*
-                     * PAGINA_ATUAL e NENHUM mantêm a página aberta.
-                     */
-                    locaisReais =
-                            request.locaisAnteriores();
+                                switch (escopoResultados) {
+                                        case "TODOS_RESULTADOS" -> locaisReais = todosLocaisReais;
+                                        case "PRIMEIRA_PAGINA" -> locaisReais = obterPaginaLocais(
+                                                        todosLocaisReais,
+                                                        0
+                                        );
+                                        case "PAGINA_ANTERIOR" -> {
+                                                int paginaAnterior = Math.max(
+                                                                0,
+                                                                paginaLocaisAtual - 1
+                                                );
+                                                locaisReais = obterPaginaLocais(
+                                                                todosLocaisReais,
+                                                                paginaAnterior
+                                                );
+                                        }
+                                        default -> {
+                                                /*
+                                                 * PAGINA_ATUAL e NENHUM mantêm a página aberta.
+                                                 */
+                                                locaisReais = request.locaisAnteriores();
+                                        }
                 }
 
-                // =====================================================
+
                 // NOVA BUSCA
-                // =====================================================
+
 
                 } else {
 
@@ -742,9 +700,9 @@ public class IAController {
                         );
                 }
 
-            // =====================================================
+
             // GROQ
-            // =====================================================
+
 
             if (
                     usaSomenteResultadosAnteriores
@@ -769,8 +727,33 @@ public class IAController {
                     locaisReais != null &&
                     !locaisReais.isEmpty();
 
-            String resposta =
-                    groqService.conversar(
+            // Uma busca sem resultados também precisa ser comunicada à IA.
+            boolean buscaLocaisRealizada =
+                    contextoLocaisDisponivel ||
+                    (categoriasLocaisConsultadas != null &&
+                     !categoriasLocaisConsultadas.isEmpty() &&
+                     latitudeReferencia != null &&
+                     longitudeReferencia != null);
+
+            Integer indiceLocalEmFoco =
+                    definirIndiceLocalEmFoco(
+                            interpretacao,
+                            locaisReais,
+                            request.indiceLocalEmFoco()
+                    );
+
+            // Distância é calculada com os dados reais, sem chamada desnecessária à Groq.
+            String respostaDistanciaDireta = null;
+            if (interpretacao != null &&
+                    "COMPARAR_LOCAIS".equals(interpretacao.intencao()) &&
+                    "DISTANCIA".equals(interpretacao.criterio())) {
+                respostaDistanciaDireta = montarRespostaComparacaoDistancia(
+                        locaisReais, indiceLocalEmFoco);
+            }
+
+            String resposta = respostaDistanciaDireta != null
+                    ? respostaDistanciaDireta
+                    : groqService.conversar(
                             request.mensagem(),
                             request.historico(),
                             viagemAtiva,
@@ -778,7 +761,7 @@ public class IAController {
                             contextoUsuario,
                             mareAtual,
                             locaisReais,
-                            contextoLocaisDisponivel,
+                            buscaLocaisRealizada,
                             categoriasLocaisConsultadas,
                             latitudeReferencia,
                             longitudeReferencia,
@@ -790,7 +773,7 @@ public class IAController {
                             resposta
                     ) ||
                     (
-                            contextoLocaisDisponivel &&
+                            buscaLocaisRealizada &&
                             respostaPrometeBuscaFutura(
                                     resposta
                             )
@@ -800,45 +783,8 @@ public class IAController {
                 resposta =
                         montarRespostaSeguraParaBusca(
                                 locaisReais,
-                                contextoLocaisDisponivel
+                                buscaLocaisRealizada
                         );
-            }
-
-            Integer indiceLocalEmFoco =
-                    definirIndiceLocalEmFoco(
-                            interpretacao,
-                            locaisReais,
-                            request.indiceLocalEmFoco()
-                    );
-
-            /*
-             * Comparações objetivas por distância não dependem da resposta
-             * textual da IA. O backend já possui distanciaMetros para cada
-             * local da página atual e consegue determinar o menor valor.
-             */
-            if (
-                    interpretacao != null &&
-                    "COMPARAR_LOCAIS".equals(
-                            interpretacao.intencao()
-                    ) &&
-                    "DISTANCIA".equals(
-                            interpretacao.criterio()
-                    )
-            ) {
-
-                String respostaDistancia =
-                        montarRespostaComparacaoDistancia(
-                                locaisReais,
-                                indiceLocalEmFoco
-                        );
-
-                if (
-                        respostaDistancia != null &&
-                        !respostaDistancia.isBlank()
-                ) {
-                    resposta =
-                            respostaDistancia;
-                }
             }
 
             /*
@@ -909,9 +855,9 @@ public class IAController {
         }
     }
 
-    // =========================================================
+
     // CONTEXTO E FOCO DOS LOCAIS
-    // =========================================================
+
 
     private Integer definirIndiceLocalEmFoco(
             GroqService.InterpretacaoIntencao interpretacao,
@@ -1067,9 +1013,9 @@ public class IAController {
                 + " da sua localização de referência.";
     }
 
-    // =========================================================
+
     // LOCALIZAÇÃO
-    // =========================================================
+
 
     private boolean mensagemPedeLocalizacaoAtual(
             String mensagem
@@ -1511,9 +1457,9 @@ public class IAController {
         return viagemAtiva.getLongitude();
     }
 
-    // =========================================================
+
     // ROLÊ! / LOCAIS REAIS
-    // =========================================================
+
 
     private List<LocalResponse> buscarLocaisSeNecessario(
             List<String> categorias,
@@ -1651,15 +1597,21 @@ public class IAController {
                                 return comparacaoScore;
                             }
 
+                            Double distanciaAValor =
+                                    a.getDistanciaMetros();
+
                             double distanciaA =
-                                    a.getDistanciaMetros() == null
+                                    distanciaAValor == null
                                             ? Double.MAX_VALUE
-                                            : a.getDistanciaMetros();
+                                            : distanciaAValor;
+
+                            Double distanciaBValor =
+                                    b.getDistanciaMetros();
 
                             double distanciaB =
-                                    b.getDistanciaMetros() == null
+                                    distanciaBValor == null
                                             ? Double.MAX_VALUE
-                                            : b.getDistanciaMetros();
+                                            : distanciaBValor;
 
                             return Double.compare(
                                     distanciaA,
@@ -1813,9 +1765,9 @@ public class IAController {
         return score;
     }
 
-    // =========================================================
+
     // DETECÇÃO DE CATEGORIAS
-    // =========================================================
+
 
     private List<String> detectarCategoriasLocal(
             String mensagem,
@@ -2167,9 +2119,9 @@ public class IAController {
         return List.of();
     }
 
-    // =========================================================
+
     // CONFIRMAÇÃO / CONTINUAÇÃO
-    // =========================================================
+
 
     private boolean mensagemEhConfirmacaoOuContinuacao(
             String mensagem
@@ -2213,9 +2165,9 @@ public class IAController {
                 "me mostra").contains(texto);
     }
 
-    // =========================================================
+
     // PROTEÇÃO DA RESPOSTA
-    // =========================================================
+
 
     private boolean respostaPareceComandoInterno(
             String resposta
@@ -2331,9 +2283,9 @@ public class IAController {
         return resposta.toString();
     }
 
-    // =========================================================
+
     // MARÉ
-    // =========================================================
+
 
     private MareResponse buscarMareSeNecessario(
             String mensagem,
@@ -2392,20 +2344,13 @@ public class IAController {
                 "mare alta",
                 "piscina natural",
                 "piscinas naturais",
-                "recife",
-                "recifes",
+                "recifes de coral",
+                "recife de coral",
                 "banco de areia",
                 "bancos de areia",
                 "tabua de mare",
                 "tabua das mares");
     }
-
-    // =========================================================
-    // CONTEXTO DO USUÁRIO
-    // =========================================================
-// =========================================================
-// CONTEXTO DA USUÁRIA
-// =========================================================
 
 private ContextoUsuarioMaia buscarContextoUsuario(
         Long usuarioId
@@ -2442,9 +2387,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
     );
 }
 
-    // =========================================================
+
     // VIAGEM ATIVA
-    // =========================================================
+
 
     private Viagem buscarViagemAtiva(
             Long usuarioId
@@ -2462,9 +2407,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
         return viagemEncontrada.orElse(null);
     }
 
-    // =========================================================
+
     // CLIMA
-    // =========================================================
+
 
     private ClimaResponse buscarClimaSeNecessario(
             String mensagem,
@@ -2491,9 +2436,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
         Double latitude;
         Double longitude;
 
-        // =====================================================
+
         // GPS ATUAL
-        // =====================================================
+
 
         if (pediuLocalizacaoAtual) {
 
@@ -2533,9 +2478,7 @@ private ContextoUsuarioMaia buscarContextoUsuario(
 
         } else {
 
-            // =================================================
             // DESTINO DA VIAGEM
-            // =================================================
 
             if (viagemAtiva == null) {
 
@@ -2603,9 +2546,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
         }
     }
 
-    // =========================================================
+
     // DETECÇÃO DE CLIMA
-    // =========================================================
+
 
     private boolean perguntaSobreClima(
             String mensagem,
@@ -2716,8 +2659,6 @@ private ContextoUsuarioMaia buscarContextoUsuario(
                         "esta frio",
                         "vai esfriar",
                         "vai esquentar",
-                        "mais tarde",
-                        "daqui a pouco",
                         "levo casaco",
                         "levar casaco",
                         "levo jaqueta",
@@ -2793,9 +2734,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
                 texto.startsWith("qual");
     }
 
-    // =========================================================
+
     // RESPOSTA RÁPIDA DE TEMPERATURA
-    // =========================================================
+
 
     private boolean perguntaSimplesDeTemperatura(
             String mensagem
@@ -2970,9 +2911,9 @@ private ContextoUsuarioMaia buscarContextoUsuario(
         );
     }
 
-    // =========================================================
+
     // NORMALIZAÇÃO / UTILITÁRIOS
-    // =========================================================
+
 
     private String normalizarTexto(
             String texto

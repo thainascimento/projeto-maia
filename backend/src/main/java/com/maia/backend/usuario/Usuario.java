@@ -26,6 +26,9 @@ public class Usuario {
 
     private String telefone;
 
+    @Column(name = "foto_uri")
+    private String fotoUri;
+
     @Column(name = "contato_emergencia_nome")
     private String contatoEmergenciaNome;
 
@@ -116,4 +119,13 @@ public class Usuario {
         this.contatoEmergenciaRelacao =
                 contatoEmergenciaRelacao;
     }
+
+    public String getFotoUri() {
+        return fotoUri;
+    }
+
+    public void setFotoUri(String fotoUri) {
+        this.fotoUri = fotoUri;
+    }
+
 }

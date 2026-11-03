@@ -60,7 +60,7 @@ public class GroqService {
 
 
     // =========================================================
-    // INTERPRETAÃ‡ÃƒO DE INTENÃ‡ÃƒO
+    // INTERPRETAÇÃO DE INTENÇÃO
     // =========================================================
 
     public static record InterpretacaoIntencao(
@@ -105,15 +105,15 @@ public class GroqService {
 
             String promptSistema =
                     """
-                    VocÃª classifica a intenÃ§Ã£o da mensagem para a maIA.
-                    NÃ£o responda Ã  usuÃ¡ria. Retorne somente JSON puro.
+                    Você classifica a intenção da mensagem para a maIA.
+                    Não responda à usuária. Retorne somente JSON puro.
 
-                    IntenÃ§Ãµes:
+                    Intenções:
                     LOCALIZACAO_ATUAL, CLIMA, MARE, BUSCAR_LOCAL,
                     COMPARAR_LOCAIS, DETALHAR_LOCAL, MAIS_RESULTADOS,
                     REFINAR_BUSCA, DESTINO_VIAGEM, CONVERSA_GERAL.
 
-                    ReferÃªncia geogrÃ¡fica:
+                    Referência geográfica:
                     GPS_ATUAL, DESTINO_VIAGEM ou NENHUMA.
 
                     Categorias:
@@ -122,10 +122,10 @@ public class GroqService {
                     mirante, monumento, castelo, igreja, ruina,
                     farol, arte, natureza ou null.
 
-                    ReferÃªncia conversacional:
+                    Referência conversacional:
                     RESULTADOS_ANTERIORES ou NENHUMA.
 
-                    CritÃ©rio:
+                    Critério:
                     DISTANCIA, SITE, TELEFONE, HORARIO, ENDERECO,
                     ACESSIBILIDADE, INTERNET ou null.
 
@@ -134,62 +134,62 @@ public class GroqService {
                     PAGINA_ANTERIOR ou NENHUM.
 
                     Regras:
-                    - Entenda linguagem natural e use o histÃ³rico recente como
-                      continuaÃ§Ã£o real da conversa, nÃ£o como mensagens isoladas.
-                    - Resolva referÃªncias, pronomes e elipses pelo histÃ³rico.
-                      Se a conversa estiver falando de um local especÃ­fico,
+                    - Entenda linguagem natural e use o histórico recente como
+                      continuação real da conversa, não como mensagens isoladas.
+                    - Resolva referências, pronomes e elipses pelo histórico.
+                      Se a conversa estiver falando de um local específico,
                       perguntas subsequentes sobre "ele", "esse", "esse lugar",
                       "o local", ou perguntas abreviadas como "e telefone?",
-                      "e o site?", "qual o endereÃ§o?" e "abre que horas?"
+                      "e o site?", "qual o endereço?" e "abre que horas?"
                       continuam se referindo ao mesmo local.
-                    - Quando a mensagem atual pedir uma informaÃ§Ã£o sobre um local
-                      que jÃ¡ estÃ¡ em foco no histÃ³rico, classifique como
+                    - Quando a mensagem atual pedir uma informação sobre um local
+                      que já está em foco no histórico, classifique como
                       DETALHAR_LOCAL + RESULTADOS_ANTERIORES.
-                    - Nessa continuaÃ§Ã£o, use o critÃ©rio correspondente quando
+                    - Nessa continuação, use o critério correspondente quando
                       houver: SITE, TELEFONE, HORARIO, ENDERECO,
                       ACESSIBILIDADE ou INTERNET. Se for um pedido geral de
                       detalhes, criterio=null.
                     - Se a mensagem escolher explicitamente "o primeiro",
                       "o segundo", "o terceiro" etc., use DETALHAR_LOCAL +
                       RESULTADOS_ANTERIORES e preencha indiceLocal.
-                    - Se a mensagem apenas continuar falando do local jÃ¡ escolhido,
-                      nÃ£o invente um novo indiceLocal; deixe indiceLocal=null para
+                    - Se a mensagem apenas continuar falando do local já escolhido,
+                      não invente um novo indiceLocal; deixe indiceLocal=null para
                       que o foco atual seja preservado pelo sistema.
                     - "perto de mim", "aqui perto" => GPS_ATUAL.
                     - "meu destino", "na viagem" => DESTINO_VIAGEM.
-                    - clima => CLIMA; marÃ© => MARE.
+                    - clima => CLIMA; maré => MARE.
                     - pedidos novos de lugares => BUSCAR_LOCAL + categoriaLocal.
-                    - perguntas que comparam vÃ¡rios resultados anteriores, como
+                    - perguntas que comparam vários resultados anteriores, como
                       "qual o mais perto?" ou "qual deles tem site?", usam
-                      COMPARAR_LOCAIS + RESULTADOS_ANTERIORES + critÃ©rio.
+                      COMPARAR_LOCAIS + RESULTADOS_ANTERIORES + critério.
                     - Para COMPARAR_LOCAIS, DETALHAR_LOCAL ou REFINAR_BUSCA sobre
-                      resultados anteriores, interprete tambÃ©m qual conjunto da
-                      conversa a usuÃ¡ria estÃ¡ mencionando em escopoResultados.
+                      resultados anteriores, interprete também qual conjunto da
+                      conversa a usuária está mencionando em escopoResultados.
                     - PAGINA_ATUAL significa explicitamente a lista mais recente,
-                      por exemplo "dessa Ãºltima lista", "esses Ãºltimos" ou quando
-                      o contexto deixa claro que a usuÃ¡ria fala sÃ³ do Ãºltimo bloco.
+                      por exemplo "dessa última lista", "esses últimos" ou quando
+                      o contexto deixa claro que a usuária fala só do último bloco.
                     - TODOS_RESULTADOS significa todos os locais encontrados na
-                      busca atual. Use para referÃªncias amplas como "todos",
-                      "entre todos", "dos que vocÃª encontrou", "dos que vocÃª me
-                      mostrou" e tambÃ©m "desses", "deles" ou "esses lugares"
-                      depois de mais de um bloco, quando a usuÃ¡ria nÃ£o limitar a
+                      busca atual. Use para referências amplas como "todos",
+                      "entre todos", "dos que você encontrou", "dos que você me
+                      mostrou" e também "desses", "deles" ou "esses lugares"
+                      depois de mais de um bloco, quando a usuária não limitar a
                       pergunta ao bloco mais recente.
                     - PRIMEIRA_PAGINA significa o primeiro bloco, como "os
                       primeiros" ou "a primeira lista".
                     - PAGINA_ANTERIOR significa o bloco imediatamente anterior,
                       como "os anteriores" ou "a lista anterior".
-                    - NÃ£o escolha o escopo por uma palavra isolada. Use a mensagem
-                      atual e o histÃ³rico para resolver a referÃªncia.
+                    - Não escolha o escopo por uma palavra isolada. Use a mensagem
+                      atual e o histórico para resolver a referência.
                     - Se houver resultados anteriores e o escopo continuar
-                      ambÃ­guo, use TODOS_RESULTADOS para comparaÃ§Ãµes amplas e
-                      PAGINA_ATUAL para detalhes de um item especÃ­fico.
-                    - pedidos por mais opÃ§Ãµes usam MAIS_RESULTADOS +
+                      ambíguo, use TODOS_RESULTADOS para comparações amplas e
+                      PAGINA_ATUAL para detalhes de um item específico.
+                    - pedidos por mais opções usam MAIS_RESULTADOS +
                       RESULTADOS_ANTERIORES e escopoResultados=PAGINA_ATUAL.
-                    - comparaÃ§Ãµes e detalhes sobre resultados anteriores nÃ£o
+                    - comparações e detalhes sobre resultados anteriores não
                       precisam de GPS novamente: referenciaGeografica=NENHUMA,
                       precisaGps=false.
-                    - NÃ£o transforme uma continuaÃ§Ã£o sobre um local jÃ¡ discutido
-                      em CONVERSA_GERAL apenas porque a mensagem atual Ã© curta.
+                    - Não transforme uma continuação sobre um local já discutido
+                      em CONVERSA_GERAL apenas porque a mensagem atual é curta.
                     - nunca invente local, cidade, coordenada ou contexto.
 
                     Formato:
@@ -207,7 +207,7 @@ public class GroqService {
 
             String promptUsuario =
                     """
-                    HISTÃ“RICO RECENTE:
+                    HISTÓRICO RECENTE:
                     %s
 
                     MENSAGEM ATUAL:
@@ -260,7 +260,7 @@ public class GroqService {
         } catch (Exception e) {
 
             System.out.println(
-                    " Falha ao interpretar intenÃ§Ã£o com a Groq: "
+                    " Falha ao interpretar intenção com a Groq: "
                             + e.getMessage()
             );
 
@@ -276,7 +276,7 @@ public class GroqService {
                 historico == null ||
                 historico.isEmpty()
         ) {
-            return "(sem histÃ³rico)";
+            return "(sem histórico)";
         }
 
         int inicio =
@@ -532,8 +532,8 @@ public class GroqService {
         }
 
         /*
-         * Perguntas que apenas comparam ou detalham lugares jÃ¡
-         * apresentados nÃ£o precisam consultar o GPS novamente.
+         * Perguntas que apenas comparam ou detalham lugares já
+         * apresentados não precisam consultar o GPS novamente.
          *
          * Exemplo:
          * "qual o mais perto?"
@@ -541,7 +541,7 @@ public class GroqService {
          * "e o segundo?"
          *
          * Mesmo que o modelo tenha herdado GPS_ATUAL do contexto
-         * anterior, os dados necessÃ¡rios jÃ¡ estÃ£o no histÃ³rico.
+         * anterior, os dados necessários já estão no histórico.
          */
         boolean usaSomenteResultadosAnteriores =
                 "RESULTADOS_ANTERIORES".equals(
@@ -585,7 +585,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // TESTE DA CONEXÃƒO COM A GROQ
+    // TESTE DA CONEXÃO COM A GROQ
     // =========================================================
 
     public String testarConexao() {
@@ -598,9 +598,9 @@ public class GroqService {
                             "system",
                             "content",
                             """
-                            VocÃª Ã© a maIA, assistente do aplicativo MAIA.
+                            Você é a maIA, assistente do aplicativo MAIA.
 
-                            Responda sempre em portuguÃªs do Brasil.
+                            Responda sempre em português do Brasil.
                             """
                     );
 
@@ -609,7 +609,7 @@ public class GroqService {
                             "role",
                             "user",
                             "content",
-                            "Responda somente: conexÃ£o com a maIA funcionando."
+                            "Responda somente: conexão com a maIA funcionando."
                     );
 
             Map<String, Object> corpo =
@@ -634,7 +634,7 @@ public class GroqService {
         } catch (Exception e) {
 
             throw new IllegalStateException(
-                    "NÃ£o foi possÃ­vel conectar Ã  Groq: "
+                    "Não foi possível conectar à Groq: "
                             + e.getMessage(),
                     e
             );
@@ -665,7 +665,7 @@ public class GroqService {
         ) {
 
             throw new IllegalArgumentException(
-                    "A mensagem nÃ£o pode estar vazia."
+                    "A mensagem não pode estar vazia."
             );
         }
 
@@ -673,29 +673,29 @@ public class GroqService {
 
             String promptSistema =
                     """
-                    VocÃª Ã© a maIA, assistente de viagem do app MAIA.
-                    Responda em portuguÃªs do Brasil, de forma natural, curta,
-                    prÃ¡tica e acolhedora. Normalmente use 1 a 3 parÃ¡grafos.
+                    Você é a maIA, assistente de viagem do app MAIA.
+                    Responda em português do Brasil, de forma natural, curta,
+                    prática e acolhedora. Normalmente use 1 a 3 parágrafos.
 
-                    Use o histÃ³rico recente para manter contexto e entender
-                    referÃªncias como "o primeiro", "qual o mais perto?" e
-                    "e Ã  noite?".
+                    Use o histórico recente para manter contexto e entender
+                    referências como "o primeiro", "qual o mais perto?" e
+                    "e à noite?".
 
-                    Regras de precisÃ£o:
+                    Regras de precisão:
                     - use somente dados reais presentes nos contextos recebidos;
-                    - nunca invente lugares, preÃ§os, horÃ¡rios, avaliaÃ§Ãµes,
-                      eventos, seguranÃ§a, clima, marÃ©, rotas ou tempo de trajeto;
-                    - GPS_ATUAL Ã© a localizaÃ§Ã£o fÃ­sica da usuÃ¡ria;
-                      DESTINO_VIAGEM Ã© o destino cadastrado;
-                    - distÃ¢ncia de local Ã© em linha reta, nÃ£o tempo de trajeto;
+                    - nunca invente lugares, preços, horários, avaliações,
+                      eventos, segurança, clima, maré, rotas ou tempo de trajeto;
+                    - GPS_ATUAL é a localização física da usuária;
+                      DESTINO_VIAGEM é o destino cadastrado;
+                    - distância de local é em linha reta, não tempo de trajeto;
                     - quando houver locais reais, use apenas esses nomes e dados;
                     - se faltarem dados, diga isso de forma simples;
-                    - nÃ£o exponha JSON, ferramentas ou detalhes internos;
-                    - nÃ£o diga que farÃ¡ uma busca depois: o backend jÃ¡ executou
-                      as consultas necessÃ¡rias antes da sua resposta;
-                    - em risco imediato, priorize seguranÃ§a e ajuda oficial.
+                    - não exponha JSON, ferramentas ou detalhes internos;
+                    - não diga que fará uma busca depois: o backend já executou
+                      as consultas necessárias antes da sua resposta;
+                    - em risco imediato, priorize segurança e ajuda oficial.
 
-                    Seu nome Ã© maIA. Responda diretamente ao que foi perguntado.
+                    Seu nome é maIA. Responda diretamente ao que foi perguntado.
                     """;
 
             StringBuilder contextoSistema =
@@ -782,7 +782,7 @@ public class GroqService {
             );
 
             // =====================================================
-            // HISTÃ“RICO RECENTE
+            // HISTÓRICO RECENTE
             // =====================================================
 
             if (
@@ -880,8 +880,8 @@ public class GroqService {
                             "max_completion_tokens",
                             320,
 
-                            // O backend do MAIA jÃ¡ executa Geoapify, clima,
-                            // marÃ© e demais integraÃ§Ãµes. O modelo deve apenas
+                            // O backend do MAIA já executa Geoapify, clima,
+                            // maré e demais integrações. O modelo deve apenas
                             // responder com base no contexto recebido.
                             "tool_choice",
                             "none"
@@ -908,10 +908,10 @@ public class GroqService {
 
                 /*
                  * Alguns modelos podem tentar emitir uma chamada de ferramenta
-                 * mesmo quando tool_choice = none. Nesse caso especÃ­fico,
-                 * repetimos UMA Ãºnica vez com uma instruÃ§Ã£o de sistema ainda
-                 * mais explÃ­cita. NÃ£o alteramos o modelo, nÃ£o chamamos browser
-                 * e nÃ£o mudamos o fluxo das integraÃ§Ãµes do MAIA.
+                 * mesmo quando tool_choice = none. Nesse caso específico,
+                 * repetimos UMA única vez com uma instrução de sistema ainda
+                 * mais explícita. Não alteramos o modelo, não chamamos browser
+                 * e não mudamos o fluxo das integrações do MAIA.
                  */
                 List<Map<String, Object>> mensagensRetry =
                         new ArrayList<>(
@@ -925,17 +925,17 @@ public class GroqService {
                                 "system",
                                 "content",
                                 """
-                                REGRA TÃ‰CNICA OBRIGATÃ“RIA PARA ESTA RESPOSTA:
-                                responda somente com texto natural para a usuÃ¡ria.
-                                NÃ£o tente chamar ferramentas, funÃ§Ãµes, browser,
+                                REGRA TÉCNICA OBRIGATÓRIA PARA ESTA RESPOSTA:
+                                responda somente com texto natural para a usuária.
+                                Não tente chamar ferramentas, funções, browser,
                                 pesquisa externa, repo_browser, web search ou
-                                qualquer aÃ§Ã£o interna.
+                                qualquer ação interna.
 
-                                As consultas externas necessÃ¡rias jÃ¡ foram
+                                As consultas externas necessárias já foram
                                 executadas pelo backend do MAIA antes desta
                                 mensagem. Use exclusivamente os contextos reais
-                                fornecidos na conversa. Se os dados nÃ£o confirmam
-                                uma informaÃ§Ã£o, diga isso sem tentar buscÃ¡-la.
+                                fornecidos na conversa. Se os dados não confirmam
+                                uma informação, diga isso sem tentar buscá-la.
                                 """
                         )
                 );
@@ -971,7 +971,7 @@ public class GroqService {
         } catch (Exception e) {
 
             throw new IllegalStateException(
-                    "A maIA nÃ£o conseguiu responder agora: "
+                    "A maIA não conseguiu responder agora: "
                             + e.getMessage(),
                     e
             );
@@ -1046,8 +1046,8 @@ public class GroqService {
 
     if (contextoUsuario == null) {
         return """
-                CONTEXTO REAL DA USUÃRIA
-                Dados da usuÃ¡ria nÃ£o disponÃ­veis. NÃ£o invente.
+                CONTEXTO REAL DA USUÁRIA
+                Dados da usuária não disponíveis. Não invente.
                 """;
     }
 
@@ -1057,7 +1057,7 @@ public class GroqService {
             );
 
     String primeiroNome =
-            "nÃ£o informado";
+            "não informado";
 
     if (
             contextoUsuario.nome() != null &&
@@ -1131,7 +1131,7 @@ public class GroqService {
             new StringBuilder();
 
     contexto
-            .append("CONTEXTO REAL DA USUÃRIA\n")
+            .append("CONTEXTO REAL DA USUÁRIA\n")
             .append("Nome: ")
             .append(nome)
             .append("\n")
@@ -1145,21 +1145,21 @@ public class GroqService {
                     )
             )
             .append("\n")
-            .append("Contato de emergÃªncia - nome: ")
+            .append("Contato de emergência - nome: ")
             .append(
                     valorOuNaoInformado(
                             contextoUsuario.contatoEmergenciaNome()
                     )
             )
             .append("\n")
-            .append("Contato de emergÃªncia - telefone: ")
+            .append("Contato de emergência - telefone: ")
             .append(
                     valorOuNaoInformado(
                             contextoUsuario.contatoEmergenciaTelefone()
                     )
             )
             .append("\n")
-            .append("Contato de emergÃªncia - relaÃ§Ã£o: ")
+            .append("Contato de emergência - relação: ")
             .append(
                     valorOuNaoInformado(
                             contextoUsuario.contatoEmergenciaRelacao()
@@ -1186,7 +1186,7 @@ public class GroqService {
     if (viagens.isEmpty()) {
 
         contexto.append(
-                "\nNenhuma viagem cadastrada para esta usuÃ¡ria.\n"
+                "\nNenhuma viagem cadastrada para esta usuária.\n"
         );
 
     } else {
@@ -1224,13 +1224,13 @@ public class GroqService {
                                     viagem.getEstado()
                             )
                     )
-                    .append(" | PaÃ­s: ")
+                    .append(" | País: ")
                     .append(
                             valorOuNaoInformado(
                                     viagem.getPais()
                             )
                     )
-                    .append(" | InÃ­cio: ")
+                    .append(" | Início: ")
                     .append(
                             valorOuNaoInformado(
                                     viagem.getDataInicio()
@@ -1258,13 +1258,13 @@ public class GroqService {
             """
 
             REGRAS PARA USO DESTE CONTEXTO:
-            - estes dados pertencem Ã  usuÃ¡ria atual do aplicativo;
+            - estes dados pertencem à usuária atual do aplicativo;
             - use-os somente quando forem relevantes para a pergunta;
             - "viagens anteriores" significa viagens com status FINALIZADA;
-            - viagens CANCELADAS nÃ£o contam como viagens realizadas;
-            - nÃ£o invente dados ausentes;
-            - nÃ£o diga que nÃ£o possui acesso aos dados quando a informaÃ§Ã£o estiver neste contexto;
-            - use o primeiro nome da usuÃ¡ria apenas quando soar natural.
+            - viagens CANCELADAS não contam como viagens realizadas;
+            - não invente dados ausentes;
+            - não diga que não possui acesso aos dados quando a informação estiver neste contexto;
+            - use o primeiro nome da usuária apenas quando soar natural.
             """
     );
 
@@ -1279,7 +1279,7 @@ public class GroqService {
             return """
                     CONTEXTO REAL DA VIAGEM ATIVA
                     Nenhuma viagem em andamento foi encontrada.
-                    NÃ£o presuma um destino se ele nÃ£o estiver no histÃ³rico.
+                    Não presuma um destino se ele não estiver no histórico.
                     """;
         }
 
@@ -1288,15 +1288,15 @@ public class GroqService {
                 Destino: %s
                 Cidade: %s
                 Estado: %s
-                PaÃ­s: %s
-                InÃ­cio: %s
+                País: %s
+                Início: %s
                 Fim: %s
                 Latitude do destino: %s
                 Longitude do destino: %s
 
-                Estas coordenadas sÃ£o do DESTINO cadastrado, nÃ£o do GPS atual.
+                Estas coordenadas são do DESTINO cadastrado, não do GPS atual.
                 Se CONTEXTO DE LOCAIS REAIS informar GPS_ATUAL, aquela busca
-                especÃ­fica usou a localizaÃ§Ã£o fÃ­sica fornecida pelo celular.
+                específica usou a localização física fornecida pelo celular.
                 """
                 .formatted(
                         valorOuNaoInformado(viagem.getDestino()),
@@ -1328,7 +1328,7 @@ public class GroqService {
         String categorias =
                 categoriasConsultadas == null ||
                 categoriasConsultadas.isEmpty()
-                        ? "nÃ£o informada"
+                        ? "não informada"
                         : String.join(", ", categoriasConsultadas);
 
         String referencia =
@@ -1347,7 +1347,7 @@ public class GroqService {
                     categoria=%s
                     referencia=%s
                     resultados=0
-                    NÃ£o invente alternativas especÃ­ficas.
+                    Não invente alternativas específicas.
                     """
                     .formatted(
                             categorias,
@@ -1471,8 +1471,8 @@ public class GroqService {
 
         contexto.append(
                 """
-                Use somente os locais acima. NÃ£o invente dados ausentes.
-                DistÃ¢ncias sÃ£o em linha reta.
+                Use somente os locais acima. Não invente dados ausentes.
+                Distâncias são em linha reta.
                 """
         );
 
@@ -1552,57 +1552,57 @@ public class GroqService {
     if (mare == null) {
 
         return """
-                CONTEXTO REAL DE MARÃ‰
+                CONTEXTO REAL DE MARÉ
 
-                A marÃ© nÃ£o foi consultada nesta interaÃ§Ã£o.
+                A maré não foi consultada nesta interação.
 
-                REGRA OBRIGATÃ“RIA:
-                - isso NÃƒO significa que o destino nÃ£o possui litoral;
-                - isso NÃƒO significa que a marÃ© nÃ£o Ã© aplicÃ¡vel;
-                - apenas significa que o backend nÃ£o consultou o serviÃ§o
-                  de marÃ© para esta mensagem;
-                - nÃ£o invente horÃ¡rios, alturas ou condiÃ§Ãµes de marÃ©.
+                REGRA OBRIGATÓRIA:
+                - isso NÃO significa que o destino não possui litoral;
+                - isso NÃO significa que a maré não é aplicável;
+                - apenas significa que o backend não consultou o serviço
+                  de maré para esta mensagem;
+                - não invente horários, alturas ou condições de maré.
                 """;
     }
 
     /*
-     * O MareService jÃ¡ verificou se existe costa suficientemente
-     * prÃ³xima das coordenadas consultadas.
+     * O MareService já verificou se existe costa suficientemente
+     * próxima das coordenadas consultadas.
      *
-     * Portanto, disponivel=false Ã© diferente de mare=null:
+     * Portanto, disponivel=false é diferente de mare=null:
      *
-     * null  -> a marÃ© nÃ£o foi consultada nesta interaÃ§Ã£o.
+     * null  -> a maré não foi consultada nesta interação.
      * false -> foi consultada e o backend determinou que a
-     *          informaÃ§Ã£o de marÃ© nÃ£o Ã© aplicÃ¡vel/disponÃ­vel
+     *          informação de maré não é aplicável/disponível
      *          para essas coordenadas.
      */
     if (!mare.disponivel()) {
 
         return """
-                CONTEXTO REAL DE MARÃ‰
+                CONTEXTO REAL DE MARÉ
 
                 CONSULTA REALIZADA: SIM
-                MARÃ‰ APLICÃVEL/DISPONÃVEL PARA AS COORDENADAS: NÃƒO
+                MARÉ APLICÁVEL/DISPONÍVEL PARA AS COORDENADAS: NÃO
 
                 O backend verificou as coordenadas consultadas e determinou
-                que nÃ£o hÃ¡ informaÃ§Ã£o de marÃ© aplicÃ¡vel/disponÃ­vel para
+                que não há informação de maré aplicável/disponível para
                 esse local.
 
-                REGRA OBRIGATÃ“RIA:
-                - nÃ£o forneÃ§a horÃ¡rios de marÃ©;
-                - nÃ£o forneÃ§a alturas de marÃ©;
-                - nÃ£o use dados de outra cidade ou litoral distante;
-                - nÃ£o invente uma estaÃ§Ã£o;
-                - se a usuÃ¡ria perguntar sobre marÃ© nesse local, diga apenas
-                que nÃ£o hÃ¡ informaÃ§Ã£o de marÃ© aplicÃ¡vel/disponÃ­vel para
+                REGRA OBRIGATÓRIA:
+                - não forneça horários de maré;
+                - não forneça alturas de maré;
+                - não use dados de outra cidade ou litoral distante;
+                - não invente uma estação;
+                - se a usuária perguntar sobre maré nesse local, diga apenas
+                que não há informação de maré aplicável/disponível para
                 as coordenadas consultadas;
-                - NÃƒO invente uma explicaÃ§Ã£o geogrÃ¡fica para isso;
-                - NÃƒO classifique a cidade como "interiorana", "litorÃ¢nea",
+                - NÃO invente uma explicação geográfica para isso;
+                - NÃO classifique a cidade como "interiorana", "litorânea",
                 "costeira", "longe do litoral" ou qualquer outra
-                caracterizaÃ§Ã£o geogrÃ¡fica que nÃ£o tenha sido fornecida
+                caracterização geográfica que não tenha sido fornecida
                 pelo backend;
-                - NÃƒO tente explicar por que a marÃ© nÃ£o estÃ¡ disponÃ­vel;
-                - nÃ£o diga apenas que "nÃ£o houve consulta", porque a consulta
+                - NÃO tente explicar por que a maré não está disponível;
+                - não diga apenas que "não houve consulta", porque a consulta
                 de aplicabilidade foi realizada.
 
                 """;
@@ -1613,12 +1613,12 @@ public class GroqService {
 
     contexto.append(
             """
-            CONTEXTO REAL DE MARÃ‰
+            CONTEXTO REAL DE MARÉ
 
             CONSULTA REALIZADA: SIM
-            MARÃ‰ APLICÃVEL/DISPONÃVEL PARA AS COORDENADAS: SIM
+            MARÉ APLICÁVEL/DISPONÍVEL PARA AS COORDENADAS: SIM
 
-            Os horÃ¡rios abaixo jÃ¡ incluem o offset retornado
+            Os horários abaixo já incluem o offset retornado
             pelo provedor.
             """
     );
@@ -1630,7 +1630,7 @@ public class GroqService {
 
         contexto
                 .append(
-                        "\nEstaÃ§Ã£o de referÃªncia: "
+                        "\nEstação de referência: "
                 )
                 .append(
                         mare.estacao()
@@ -1653,13 +1653,13 @@ public class GroqService {
 
     adicionarEventoMare(
             contexto,
-            "\nPrÃ³xima marÃ© baixa",
+            "\nPróxima maré baixa",
             mare.proximaMareBaixa()
     );
 
     adicionarEventoMare(
             contexto,
-            "\nPrÃ³xima marÃ© alta",
+            "\nPróxima maré alta",
             mare.proximaMareAlta()
     );
 
@@ -1669,7 +1669,7 @@ public class GroqService {
     ) {
 
         contexto.append(
-                "\n\nEventos disponÃ­veis:"
+                "\n\nEventos disponíveis:"
         );
 
         for (
@@ -1691,7 +1691,7 @@ public class GroqService {
                     .append(
                             evento.tipo() != null
                                     ? evento.tipo()
-                                    : "MARÃ‰"
+                                    : "MARÉ"
                     )
                     .append(
                             " | "
@@ -1721,16 +1721,16 @@ public class GroqService {
     contexto.append(
             """
 
-            REGRAS PARA USO DOS DADOS DE MARÃ‰:
+            REGRAS PARA USO DOS DADOS DE MARÉ:
             - use somente os eventos fornecidos acima;
-            - nÃ£o invente eventos, horÃ¡rios ou alturas;
-            - para "amanhÃ£", respeite a data de cada evento;
-            - para "agora" ou "mais tarde", compare os horÃ¡rios
+            - não invente eventos, horários ou alturas;
+            - para "amanhã", respeite a data de cada evento;
+            - para "agora" ou "mais tarde", compare os horários
               e offsets recebidos;
-            - nÃ£o transforme altura de marÃ© em classificaÃ§Ã£o de
-              perigo sem que exista dado especÃ­fico para isso;
-            - se um dado nÃ£o estiver presente, diga que ele nÃ£o
-              estÃ¡ disponÃ­vel.
+            - não transforme altura de maré em classificação de
+              perigo sem que exista dado específico para isso;
+            - se um dado não estiver presente, diga que ele não
+              está disponível.
             """
     );
 
@@ -1787,15 +1787,15 @@ public class GroqService {
         return """
                 CONTEXTO REAL DE CLIMA
 
-                O clima nÃ£o foi consultado nesta interaÃ§Ã£o.
+                O clima não foi consultado nesta interação.
 
-                REGRA OBRIGATÃ“RIA:
-                - nÃ£o invente condiÃ§Ã£o atual;
-                - nÃ£o invente temperatura;
-                - nÃ£o invente chuva, neve, vento, rajadas,
+                REGRA OBRIGATÓRIA:
+                - não invente condição atual;
+                - não invente temperatura;
+                - não invente chuva, neve, vento, rajadas,
                   neblina ou tempestade;
-                - nÃ£o use conhecimento geral sobre o clima da
-                  cidade como se fosse uma observaÃ§Ã£o atual.
+                - não use conhecimento geral sobre o clima da
+                  cidade como se fosse uma observação atual.
                 """;
     }
 
@@ -1814,37 +1814,37 @@ public class GroqService {
 
         String regrasInterpretacao =
                 """
-                REGRAS DE INTERPRETAÃ‡ÃƒO DOS DADOS CLIMÃTICOS:
+                REGRAS DE INTERPRETAÇÃO DOS DADOS CLIMÁTICOS:
                 - use exclusivamente os valores fornecidos pelo backend;
-                - temperatura e sensaÃ§Ã£o tÃ©rmica sÃ£o informaÃ§Ãµes diferentes;
-                - probabilidade de chuva Ã© probabilidade, nÃ£o confirmaÃ§Ã£o
-                  de que estÃ¡ chovendo;
+                - temperatura e sensação térmica são informações diferentes;
+                - probabilidade de chuva é probabilidade, não confirmação
+                  de que está chovendo;
                 - use neve somente quando os dados fornecidos indicarem neve;
-                - os cÃ³digos meteorolÃ³gicos 45 e 48 representam condiÃ§Ã£o
+                - os códigos meteorológicos 45 e 48 representam condição
                   de neblina/nevoeiro;
-                - os cÃ³digos meteorolÃ³gicos 71, 73, 75, 77, 85 e 86
-                  representam condiÃ§Ãµes relacionadas a neve;
-                - cÃ³digos meteorolÃ³gicos 95, 96 e 99 representam
-                  condiÃ§Ãµes de tempestade/trovoada;
+                - os códigos meteorológicos 71, 73, 75, 77, 85 e 86
+                  representam condições relacionadas a neve;
+                - códigos meteorológicos 95, 96 e 99 representam
+                  condições de tempestade/trovoada;
                 - vento e rajadas devem ser informados usando os valores
                   reais recebidos;
-                - nÃ£o transforme automaticamente velocidade do vento,
+                - não transforme automaticamente velocidade do vento,
                   rajadas ou probabilidade de chuva em alerta oficial,
-                  nÃ­vel de perigo ou recomendaÃ§Ã£o de emergÃªncia;
-                - nÃ£o invente visibilidade, Ã­ndice UV, qualidade do ar,
-                  umidade ou qualquer variÃ¡vel que nÃ£o esteja nos dados;
+                  nível de perigo ou recomendação de emergência;
+                - não invente visibilidade, índice UV, qualidade do ar,
+                  umidade ou qualquer variável que não esteja nos dados;
                 - para perguntas como "preciso levar casaco?", "vou passar
-                  frio?" ou semelhantes, use temperatura, sensaÃ§Ã£o tÃ©rmica
-                  e previsÃ£o disponÃ­vel para dar uma orientaÃ§Ã£o prÃ¡tica,
-                  deixando claro quando for uma sugestÃ£o;
-                - para perguntas sobre as prÃ³ximas horas, priorize
+                  frio?" ou semelhantes, use temperatura, sensação térmica
+                  e previsão disponível para dar uma orientação prática,
+                  deixando claro quando for uma sugestão;
+                - para perguntas sobre as próximas horas, priorize
                   previsaoProximasHoras;
-                - nÃ£o extrapole a previsÃ£o alÃ©m do perÃ­odo efetivamente
+                - não extrapole a previsão além do período efetivamente
                   fornecido pelo backend.
                 """;
 
         // =====================================================
-        // CLIMA DA LOCALIZAÃ‡ÃƒO FÃSICA ATUAL
+        // CLIMA DA LOCALIZAÇÃO FÍSICA ATUAL
         // =====================================================
 
         if (
@@ -1856,27 +1856,27 @@ public class GroqService {
             return """
                     CONTEXTO REAL DE CLIMA
 
-                    REFERÃŠNCIA DO CLIMA: GPS_ATUAL
+                    REFERÊNCIA DO CLIMA: GPS_ATUAL
 
-                    Os dados climÃ¡ticos abaixo pertencem Ã  localizaÃ§Ã£o
-                    fÃ­sica atual da usuÃ¡ria, obtida pelas coordenadas
+                    Os dados climáticos abaixo pertencem à localização
+                    física atual da usuária, obtida pelas coordenadas
                     fornecidas pelo GPS do celular.
 
                     %s
 
-                    REGRA DE LOCALIZAÃ‡ÃƒO:
-                    - estes dados NÃƒO pertencem necessariamente ao destino
+                    REGRA DE LOCALIZAÇÃO:
+                    - estes dados NÃO pertencem necessariamente ao destino
                       cadastrado na viagem ativa;
-                    - NÃƒO use o destino da viagem ativa como nome desta
-                      localizaÃ§Ã£o;
-                    - NÃƒO diga "em Pipa", "em [destino]" ou equivalente
+                    - NÃO use o destino da viagem ativa como nome desta
+                      localização;
+                    - NÃO diga "em Pipa", "em [destino]" ou equivalente
                       apenas porque existe uma viagem ativa;
-                    - se o sistema nÃ£o forneceu o nome real da cidade
-                      correspondente ao GPS, diga "na sua localizaÃ§Ã£o atual",
-                      "onde vocÃª estÃ¡ agora" ou equivalente;
-                    - nÃ£o invente o nome da cidade a partir das coordenadas;
-                    - dataHoraLocal corresponde Ã  referÃªncia climÃ¡tica
-                      consultada, nÃ£o ao destino da viagem;
+                    - se o sistema não forneceu o nome real da cidade
+                      correspondente ao GPS, diga "na sua localização atual",
+                      "onde você está agora" ou equivalente;
+                    - não invente o nome da cidade a partir das coordenadas;
+                    - dataHoraLocal corresponde à referência climática
+                      consultada, não ao destino da viagem;
                     - finalize com uma dica para a usuaria relacionada ao clima, se for relevante para a pergunta dela.
 
 
@@ -1895,18 +1895,18 @@ public class GroqService {
         return """
                 CONTEXTO REAL DE CLIMA
 
-                REFERÃŠNCIA DO CLIMA: DESTINO_VIAGEM
+                REFERÊNCIA DO CLIMA: DESTINO_VIAGEM
 
-                Os dados climÃ¡ticos abaixo pertencem ao destino
+                Os dados climáticos abaixo pertencem ao destino
                 cadastrado na viagem ativa.
 
                 %s
 
-                REGRA DE LOCALIZAÃ‡ÃƒO:
+                REGRA DE LOCALIZAÇÃO:
                 - estes dados correspondem ao destino da viagem;
                 - o nome do destino pode ser obtido no
                   CONTEXTO REAL DA VIAGEM ATIVA;
-                - dataHoraLocal corresponde Ã  referÃªncia climÃ¡tica
+                - dataHoraLocal corresponde à referência climática
                   consultada.
 
                 %s
@@ -1921,16 +1921,16 @@ public class GroqService {
         return """
                 CONTEXTO REAL DE CLIMA
 
-                Os dados climÃ¡ticos nÃ£o puderam ser preparados
-                para esta interaÃ§Ã£o.
+                Os dados climáticos não puderam ser preparados
+                para esta interação.
 
-                NÃ£o invente valores ou condiÃ§Ãµes meteorolÃ³gicas.
+                Não invente valores ou condições meteorológicas.
                 """;
     }
 }
 
     // =========================================================
-    // RECOMENDAÃ‡ÃƒO DE DESTINOS
+    // RECOMENDAÇÃO DE DESTINOS
     // =========================================================
 
     public RecomendacaoResponse recomendarDestinos(
@@ -1941,36 +1941,36 @@ public class GroqService {
 
             /*
              * ETAPA 1: escolhe somente os nomes de 1 a 3 cidades.
-             * A resposta Ã© propositalmente pequena para que o modelo nÃ£o
-             * gaste a janela de saÃ­da descrevendo o primeiro destino e deixe
+             * A resposta é propositalmente pequena para que o modelo não
+             * gaste a janela de saída descrevendo o primeiro destino e deixe
              * de completar os demais.
              */
             String promptSelecao = """
-                    VocÃª Ã© a maIA, assistente de viagens do aplicativo MAIA.
+                    Você é a maIA, assistente de viagens do aplicativo MAIA.
                     Analise o perfil da viajante e escolha de 1 a 3 cidades
                     DIFERENTES que realmente atendam bem ao conjunto completo.
 
-                    Ordem de importÃ¢ncia:
-                    1. restriÃ§Ã£o geogrÃ¡fica, quando houver;
-                    2. requisitos indispensÃ¡veis;
+                    Ordem de importância:
+                    1. restrição geográfica, quando houver;
+                    2. requisitos indispensáveis;
                     3. interesses;
-                    4. perÃ­odo, orÃ§amento, ritmo e mobilidade.
+                    4. período, orçamento, ritmo e mobilidade.
 
-                    Os requisitos indispensÃ¡veis jÃ¡ representam o que Ã© mais
-                    importante e nÃ£o pode faltar. NÃ£o conte o mesmo critÃ©rio duas
-                    vezes mesmo que ele tambÃ©m apareÃ§a no texto livre.
+                    Os requisitos indispensáveis já representam o que é mais
+                    importante e não pode faltar. Não conte o mesmo critério duas
+                    vezes mesmo que ele também apareça no texto livre.
 
-                    NÃ£o invente caracterÃ­sticas para fazer uma cidade caber no
-                    perfil. Retorne no mÃ¡ximo 3 opÃ§Ãµes. Se somente 1 ou 2 cidades
-                    tiverem boa aderÃªncia ao perfil, retorne apenas essas opÃ§Ãµes.
-                    NÃ£o force uma terceira cidade de baixa compatibilidade.
+                    Não invente características para fazer uma cidade caber no
+                    perfil. Retorne no máximo 3 opções. Se somente 1 ou 2 cidades
+                    tiverem boa aderência ao perfil, retorne apenas essas opções.
+                    Não force uma terceira cidade de baixa compatibilidade.
 
-                    Retorne APENAS JSON vÃ¡lido e curto neste formato:
+                    Retorne APENAS JSON válido e curto neste formato:
                     {"destinos":[
                       {"cidade":"string","estadoOuRegiao":"string","pais":"string"}
                     ]}
 
-                    O array destinos deve conter no mÃ­nimo 1 e no mÃ¡ximo 3 cidades
+                    O array destinos deve conter no mínimo 1 e no máximo 3 cidades
                     diferentes.
                     """;
 
@@ -2014,14 +2014,14 @@ public class GroqService {
 
                 if (cidade.isBlank()) {
                     throw new IllegalStateException(
-                            "A maIA retornou uma cidade vazia na seleÃ§Ã£o."
+                            "A maIA retornou uma cidade vazia na seleção."
                     );
                 }
 
                 String normalizada = normalizarCidadeRecomendacao(cidade);
                 if (!cidadesNormalizadas.add(normalizada)) {
                     throw new IllegalStateException(
-                            "A maIA repetiu uma cidade na seleÃ§Ã£o: " + cidade + "."
+                            "A maIA repetiu uma cidade na seleção: " + cidade + "."
                     );
                 }
 
@@ -2040,533 +2040,181 @@ public class GroqService {
             /*
              * ETAPA 2: detalha cada cidade individualmente.
              *
-             * A etapa de seleÃ§Ã£o pode retornar 1, 2 ou 3 cidades. Em vez de
-             * pedir ao modelo que detalhe todas em um Ãºnico JSON grande,
+             * A etapa de seleção pode retornar 1, 2 ou 3 cidades. Em vez de
+             * pedir ao modelo que detalhe todas em um único JSON grande,
              * fazemos uma chamada curta para cada cidade. Isso evita que o
              * modelo omita uma das cidades durante o detalhamento.
              *
-             * O Java reÃºne os resultados em um Ãºnico JSON, valida a quantidade,
-             * garante que nenhuma cidade foi trocada ou repetida e sÃ³ entÃ£o
+             * O Java reúne os resultados em um único JSON, valida a quantidade,
+             * garante que nenhuma cidade foi trocada ou repetida e só então
              * converte para RecomendacaoResponse.
              */
             com.fasterxml.jackson.databind.node.ArrayNode destinosDetalhados =
                     objectMapper.createArrayNode();
 
+            // Uma análise estruturada por cidade substitui as duas chamadas
+            // anteriores (detalhamento + avaliação). A pontuação continua no Java.
             for (String cidadeSelecionada : cidades) {
+                long inicioCidade = System.nanoTime();
+                String promptCompleto = """
+                        Você é a maIA, assistente de viagens para mulheres.
+                        Analise EXCLUSIVAMENTE a cidade selecionada: %s.
+                        Não troque a cidade. Produza uma análise específica,
+                        útil, crítica e não genérica, inclusive para quem viaja sozinha.
 
-                String promptDetalhamento = """
-                        VocÃª Ã© a maIA, assistente inteligente de viagens do MAIA,
-                        voltado principalmente para mulheres que viajam sozinhas.
-
-                        A cidade abaixo JÃ FOI selecionada e validada pelo sistema.
-                        NÃƒO troque a cidade e NÃƒO recomende outra.
-                        Analise e detalhe SOMENTE esta cidade.
-
-                        CIDADE SELECIONADA:
+                        PERFIL DA VIAJANTE:
                         %s
 
-                        Explique concretamente como ela atende ou deixa de atender
-                        requisitos indispensÃ¡veis, interesses, mobilidade, ritmo,
-                        perÃ­odo e orÃ§amento. Quando houver uma limitaÃ§Ã£o importante,
-                        coloque-a em pontosDeAtencao.
+                        REQUISITOS INDISPENSÁVEIS (um status por item, texto idêntico):
+                        %s
+                        INTERESSES (um status por item, texto idêntico):
+                        %s
+                        MOBILIDADE: %s
+                        RITMO: %s
+                        PERÍODO: %s
+                        ORÇAMENTO: %s
+                        OBSERVAÇÕES LIVRES: %s
 
-                        REGRA SEMÃ‚NTICA OBRIGATÃ“RIA:
-                        Quando o perfil mencionar "Ãguas quentes" ou
-                        "Ãgua do mar quente / morna" em contexto de praia, mar,
-                        litoral, banho, piscinas naturais ou destino costeiro, isso
-                        significa temperatura agradÃ¡vel da ÃGUA DO MAR. NÃ£o interprete
-                        como Ã¡guas termais, fontes termais, termas ou nascentes quentes,
-                        a menos que a viajante peÃ§a explicitamente por termas ou Ã¡guas
-                        termais.
+                        CRITÉRIOS DE QUALIDADE:
+                        - Considere todos os requisitos e interesses separadamente.
+                        - Requisitos indispensáveis têm prioridade; não esconda conflitos.
+                        - Segurança: não invente índices, estatísticas, policiamento,
+                          garantias ou classificações de bairros como seguros.
+                          Ofereça orientações práticas, reconhecendo incertezas.
+                        - Mobilidade: diferencie opções a pé, transporte público e
+                          deslocamentos que podem exigir carro ou transporte privado.
+                        - Período: use somente sazonalidade geral; não invente previsão.
+                        - Orçamento: sem custos verificáveis, use NAO_VERIFICAVEL.
+                        - Águas quentes em contexto de praia = temperatura da água do mar,
+                          nunca águas termais, salvo pedido explícito.
+                        - Não invente preços, clima futuro ou fatos locais incertos.
+                        - Em pontosDeAtencao, destaque limitações reais para o perfil.
+                        - Para cada critério, use exclusivamente ATENDE, PARCIAL,
+                          NAO_ATENDE ou NAO_VERIFICAVEL. Seja crítico e independente.
+                          ATENDE requer base suficiente; PARCIAL significa condição,
+                          restrição regional ou atendimento incompleto; NAO_ATENDE é
+                          incompatibilidade; NAO_VERIFICAVEL significa falta de dados.
+                        - Se mobilidade repetir requisito indispensável, use
+                          NAO_VERIFICAVEL em avaliacaoMobilidade para não duplicar.
+                        - Não calcule percentuais: o Java calcula a compatibilidade.
+                        - Retorne JSON puro, válido, sem Markdown, com exatamente
+                          um destino e todos os campos abaixo. Evite textos longos.
 
-                        SEGURANÃ‡A:
-                        O MAIA Ã© voltado principalmente para mulheres que viajam
-                        sozinhas. NÃ£o invente Ã­ndices de criminalidade, estatÃ­sticas,
-                        policiamento ou garantias de que um lugar Ã© seguro.
-                        Sem dados atuais fornecidos pelo sistema, trate seguranÃ§a como
-                        orientaÃ§Ã£o prÃ¡tica e contextual. NÃ£o afirme que uma cidade Ã©
-                        "segura" ou "insegura" como fato nÃ£o verificado.
-
-                        Considere o perÃ­odo informado como contexto sazonal, mas nÃ£o
-                        invente previsÃ£o meteorolÃ³gica futura, preÃ§os exatos ou fatos
-                        dos quais nÃ£o tenha confianÃ§a razoÃ¡vel.
-
-                        Retorne APENAS JSON vÃ¡lido, sem Markdown, exatamente assim:
                         {"destinos":[{
-                          "cidade":"string",
-                          "estadoOuRegiao":"string",
-                          "pais":"string",
-                          "resumo":"string",
-                          "porQueCombina":"string",
-                          "seguranca":"string",
-                          "mobilidade":"string",
-                          "clima":"string",
-                          "melhorRegiaoParaFicar":"string",
+                          "cidade":"string", "estadoOuRegiao":"string", "pais":"string",
+                          "resumo":"string", "porQueCombina":"string",
+                          "seguranca":"string", "mobilidade":"string",
+                          "clima":"string", "melhorRegiaoParaFicar":"string",
                           "caracteristicasRelevantes":["string"],
                           "pontosPositivos":["string"],
-                          "pontosDeAtencao":["string"]
-                        }]}
-
-                        O array destinos deve conter EXATAMENTE 1 item e esse item
-                        deve corresponder Ã  cidade selecionada acima.
-                        Use de 3 a 5 itens curtos em caracteristicasRelevantes e
-                        pontosPositivos e de 1 a 3 itens em pontosDeAtencao quando
-                        houver limitaÃ§Ãµes.
-                        """.formatted(cidadeSelecionada);
-
-                Map<String, Object> corpoDetalhamento =
-                        Map.of(
-                                "model", model,
-                                "messages", List.of(
-                                        Map.of(
-                                                "role",
-                                                "system",
-                                                "content",
-                                                promptDetalhamento
-                                        ),
-                                        Map.of(
-                                                "role",
-                                                "user",
-                                                "content",
-                                                perfil
-                                                        + "\n\nCRITÃ‰RIOS ESTRUTURADOS PARA AVALIAÃ‡ÃƒO:"
-                                                        + "\nREQUISITOS SELECIONADOS: "
-                                                        + listaOuNaoInformado(
-                                                                planejamento.getRequisitosSelecionados()
-                                                        )
-                                                        + "\nINTERESSES: "
-                                                        + listaOuNaoInformado(
-                                                                planejamento.getInteresses()
-                                                        )
-                                                        + "\nMOBILIDADE: "
-                                                        + valorOuNaoInformado(
-                                                                planejamento.getMobilidade()
-                                                        )
-                                                        + "\nRITMO: "
-                                                        + valorOuNaoInformado(
-                                                                planejamento.getRitmoDestino()
-                                                        )
-                                                        + "\nPERÃODO: "
-                                                        + valorOuNaoInformado(
-                                                                planejamento.getPeriodo()
-                                                        )
-                                                        + "\nORÃ‡AMENTO: "
-                                                        + valorOuNaoInformado(
-                                                                planejamento.getOrcamento()
-                                                        )
-                                        )
-                                ),
-                                "temperature", 0.15,
-                                "max_completion_tokens", 1400,
-                                "response_format", Map.of(
-                                        "type",
-                                        "json_object"
-                                )
-                        );
-
-                System.out.println(
-                        "Planejamento maIA - etapa 2/3: detalhando "
-                                + cidadeSelecionada
-                                + "."
-                );
-
-                String conteudoCidade;
-
-                try {
-
-                    conteudoCidade =
-                            executarRequisicao(
-                                    corpoDetalhamento
-                            );
-
-                } catch (IllegalStateException erroGroq) {
-
-                    String mensagemErro =
-                            erroGroq.getMessage() == null
-                                    ? ""
-                                    : erroGroq
-                                            .getMessage()
-                                            .toLowerCase(
-                                                    Locale.ROOT
-                                            );
-
-                    boolean falhaDeJson =
-                            mensagemErro.contains(
-                                    "json_validate_failed"
-                            );
-
-                    if (!falhaDeJson) {
-                        throw erroGroq;
-                    }
-
-                    Map<String, Object> corpoDetalhamentoRetry =
-                            new java.util.LinkedHashMap<>(
-                                    corpoDetalhamento
-                            );
-
-                    corpoDetalhamentoRetry.put(
-                            "max_completion_tokens",
-                            1800
-                    );
-
-                    System.out.println(
-                            "Planejamento maIA - detalhamento de "
-                                    + cidadeSelecionada
-                                    + " retornou JSON invÃ¡lido. "
-                                    + "Repetindo somente esta cidade uma vez com "
-                                    + "max_completion_tokens=1800."
-                    );
-
-                    conteudoCidade =
-                            executarRequisicao(
-                                    corpoDetalhamentoRetry,
-                                    false
-                            );
-                }
-
-                JsonNode jsonCidade =
-                        objectMapper.readTree(
-                                conteudoCidade
-                        );
-
-                JsonNode destinosCidade =
-                        jsonCidade.path(
-                                "destinos"
-                        );
-
-                if (
-                        !destinosCidade.isArray() ||
-                        destinosCidade.size() != 1
-                ) {
-                    throw new IllegalStateException(
-                            "A maIA nÃ£o conseguiu detalhar corretamente a cidade "
-                                    + cidadeSelecionada
-                                    + "."
-                    );
-                }
-
-                JsonNode destinoDetalhado =
-                        destinosCidade.get(0);
-
-                String cidadeRetornada =
-                        destinoDetalhado
-                                .path("cidade")
-                                .asText("")
-                                .trim();
-
-                if (cidadeRetornada.isBlank()) {
-                    throw new IllegalStateException(
-                            "A maIA retornou um detalhamento sem cidade vÃ¡lida."
-                    );
-                }
-
-                String cidadeSelecionadaSemLocalizacao =
-                        cidadeSelecionada
-                                .split(",")[0]
-                                .trim();
-
-                if (
-                        !normalizarCidadeRecomendacao(
-                                cidadeRetornada
-                        ).equals(
-                                normalizarCidadeRecomendacao(
-                                        cidadeSelecionadaSemLocalizacao
-                                )
-                        )
-                ) {
-                    throw new IllegalStateException(
-                            "A maIA trocou a cidade "
-                                    + cidadeSelecionadaSemLocalizacao
-                                    + " por "
-                                    + cidadeRetornada
-                                    + " durante o detalhamento."
-                    );
-                }
-
-                String promptAvaliacao = """
-                        VocÃª Ã© o mÃ³dulo de avaliaÃ§Ã£o semÃ¢ntica do planejamento MAIA.
-
-                        Avalie SOMENTE a cidade abaixo contra os critÃ©rios estruturados
-                        da viajante. NÃƒO escreva descriÃ§Ã£o turÃ­stica, explicaÃ§Ãµes,
-                        percentuais, notas ou comentÃ¡rios.
-
-                        CIDADE:
-                        %s
-
-                        REQUISITOS SELECIONADOS:
-                        %s
-
-                        INTERESSES:
-                        %s
-
-                        MOBILIDADE:
-                        %s
-
-                        RITMO:
-                        %s
-
-                        PERÃODO:
-                        %s
-
-                        ORÃ‡AMENTO:
-                        %s
-
-                        CONTEXTO LIVRE DA VIAJANTE:
-                        %s
-
-                        Use somente os status:
-                        ATENDE, PARCIAL, NAO_ATENDE ou NAO_VERIFICAVEL.
-
-                        Seja crÃ­tico. Sua funÃ§Ã£o nÃ£o Ã© confirmar a recomendaÃ§Ã£o,
-                        mas avaliar cada critÃ©rio de forma independente.
-
-                        ATENDE: hÃ¡ base suficiente para concluir que a cidade atende.
-                        PARCIAL: atende apenas em parte, depende da regiÃ£o, deslocamento
-                        ou de alguma condiÃ§Ã£o relevante.
-                        NAO_ATENDE: hÃ¡ incompatibilidade clara com o pedido.
-                        NAO_VERIFICAVEL: faltam dados suficientes para uma conclusÃ£o
-                        responsÃ¡vel.
-
-                        NÃ£o marque ATENDE por suposiÃ§Ã£o. Em especial, orÃ§amento nÃ£o
-                        pode ser considerado atendido sem dados suficientes de custos
-                        da viagem. PerÃ­odo pode ser avaliado apenas quanto a
-                        caracterÃ­sticas sazonais gerais; nÃ£o invente previsÃ£o do tempo.
-
-                        Regras:
-                        1. Em avaliacoesRequisitos, devolva exatamente um item para
-                           cada requisito recebido, preservando o texto de criterio.
-                        2. Em avaliacoesInteresses, devolva exatamente um item para
-                           cada interesse recebido, preservando o texto de criterio.
-                        3. Avalie cada campo de forma independente. Se mobilidade jÃ¡
-                           representar essencialmente um requisito selecionado, marque
-                           avaliacaoMobilidade como NAO_VERIFICAVEL para evitar
-                           pontuaÃ§Ã£o duplicada; o requisito continua sendo avaliado
-                           normalmente.
-                        4. O texto livre ajuda na interpretaÃ§Ã£o, mas nÃ£o cria pontos
-                           extras e nÃ£o duplica critÃ©rios.
-                        5. "Ãguas quentes" em contexto de praia significa Ã¡gua do mar
-                           quente ou morna, nÃ£o Ã¡guas termais.
-                        6. NÃ£o calcule compatibilidade. O Java farÃ¡ a conta.
-
-                        SEGURANÃ‡A EM TODO O JSON:
-                        O MAIA Ã© voltado principalmente para mulheres que viajam
-                        sozinhas. Sem dados atuais e verificÃ¡veis fornecidos pelo
-                        sistema, nÃ£o afirme em nenhum campo que uma cidade, bairro,
-                        regiÃ£o, rua ou zona Ã© "segura", "insegura", "tranquila",
-                        "bem policiada" ou equivalente como fato. Isso vale para
-                        seguranca, melhorRegiaoParaFicar, resumo, porQueCombina e
-                        quaisquer listas. Prefira orientaÃ§Ãµes prÃ¡ticas e deixe clara
-                        a limitaÃ§Ã£o quando nÃ£o houver dados atuais.
-
-                        Retorne APENAS JSON vÃ¡lido neste formato:
-                        {
-                          "avaliacoesRequisitos":[
-                            {"criterio":"string","status":"ATENDE"}
-                          ],
-                          "avaliacoesInteresses":[
-                            {"criterio":"string","status":"ATENDE"}
-                          ],
+                          "pontosDeAtencao":["string"],
+                          "avaliacoesRequisitos":[{"criterio":"string","status":"ATENDE"}],
+                          "avaliacoesInteresses":[{"criterio":"string","status":"ATENDE"}],
                           "avaliacaoMobilidade":"ATENDE",
                           "avaliacaoRitmo":"ATENDE",
                           "avaliacaoPeriodo":"ATENDE",
-                          "avaliacaoOrcamento":"ATENDE"
-                        }
+                          "avaliacaoOrcamento":"NAO_VERIFICAVEL"
+                        }]}
+                        Em cada lista de descrição, inclua de 2 a 4 itens relevantes.
+                        Se não houver requisitos/interesses, retorne array vazio.
                         """.formatted(
                                 cidadeSelecionada,
-                                listaOuNaoInformado(
-                                        planejamento.getRequisitosSelecionados()
-                                ),
-                                listaOuNaoInformado(
-                                        planejamento.getInteresses()
-                                ),
-                                valorOuNaoInformado(
-                                        planejamento.getMobilidade()
-                                ),
-                                valorOuNaoInformado(
-                                        planejamento.getRitmoDestino()
-                                ),
-                                valorOuNaoInformado(
-                                        planejamento.getPeriodo()
-                                ),
-                                valorOuNaoInformado(
-                                        planejamento.getOrcamento()
-                                ),
-                                valorOuNaoInformado(
-                                        planejamento.getRequisitosIndispensaveis()
-                                )
+                                perfil,
+                                listaOuNaoInformado(planejamento.getRequisitosSelecionados()),
+                                listaOuNaoInformado(planejamento.getInteresses()),
+                                valorOuNaoInformado(planejamento.getMobilidade()),
+                                valorOuNaoInformado(planejamento.getRitmoDestino()),
+                                valorOuNaoInformado(planejamento.getPeriodo()),
+                                valorOuNaoInformado(planejamento.getOrcamento()),
+                                valorOuNaoInformado(planejamento.getRequisitosIndispensaveis())
                         );
 
-                Map<String, Object> corpoAvaliacao =
-                        Map.of(
-                                "model", model,
-                                "messages", List.of(
-                                        Map.of(
-                                                "role",
-                                                "system",
-                                                "content",
-                                                promptAvaliacao
-                                        )
-                                ),
-                                "temperature", 0.0,
-                                "max_completion_tokens", 700,
-                                "response_format", Map.of(
-                                        "type",
-                                        "json_object"
-                                )
-                        );
-
-                System.out.println(
-                        "Planejamento maIA - etapa 3/3: avaliando critÃ©rios de "
-                                + cidadeSelecionada
-                                + "."
+                Map<String, Object> corpoCompleto = Map.of(
+                        "model", model,
+                        "messages", List.of(Map.of(
+                                "role", "system", "content", promptCompleto
+                        )),
+                        "temperature", 0.1,
+                        "max_completion_tokens", 2600,
+                        "response_format", Map.of("type", "json_object")
                 );
 
-                String conteudoAvaliacao;
+                System.out.println("Planejamento maIA - análise integrada: "
+                        + cidadeSelecionada + ".");
 
+                String conteudoCidade;
                 try {
-
-                    conteudoAvaliacao =
-                            executarRequisicao(
-                                    corpoAvaliacao
-                            );
-
-                } catch (IllegalStateException erroAvaliacao) {
-
-                    String mensagemErroAvaliacao =
-                            erroAvaliacao.getMessage() == null
-                                    ? ""
-                                    : erroAvaliacao
-                                            .getMessage()
-                                            .toLowerCase(
-                                                    Locale.ROOT
-                                            );
-
-                    if (
-                            !mensagemErroAvaliacao.contains(
-                                    "json_validate_failed"
-                            )
-                    ) {
-                        throw erroAvaliacao;
+                    conteudoCidade = executarRequisicao(corpoCompleto);
+                } catch (IllegalStateException erroGroq) {
+                    String mensagemErro = erroGroq.getMessage() == null
+                            ? "" : erroGroq.getMessage().toLowerCase(Locale.ROOT);
+                    if (!mensagemErro.contains("json_validate_failed")) {
+                        throw erroGroq;
                     }
-
-                    Map<String, Object> corpoAvaliacaoRetry =
-                            new java.util.LinkedHashMap<>(
-                                    corpoAvaliacao
-                            );
-
-                    corpoAvaliacaoRetry.put(
-                            "max_completion_tokens",
-                            1000
-                    );
-
-                    System.out.println(
-                            "Planejamento maIA - avaliaÃ§Ã£o de "
-                                    + cidadeSelecionada
-                                    + " retornou JSON invÃ¡lido. "
-                                    + "Repetindo somente a avaliaÃ§Ã£o uma vez."
-                    );
-
-                    conteudoAvaliacao =
-                            executarRequisicao(
-                                    corpoAvaliacaoRetry,
-                                    false
-                            );
+                    Map<String, Object> corpoRetry =
+                            new java.util.LinkedHashMap<>(corpoCompleto);
+                    corpoRetry.put("max_completion_tokens", 3400);
+                    System.out.println("Planejamento maIA - JSON inválido para "
+                            + cidadeSelecionada + "; repetindo somente esta cidade.");
+                    conteudoCidade = executarRequisicao(corpoRetry, false);
                 }
 
-                JsonNode avaliacaoJson =
-                        objectMapper.readTree(
-                                conteudoAvaliacao
-                        );
-
-                if (
-                        !(destinoDetalhado
-                                instanceof com.fasterxml.jackson.databind.node.ObjectNode)
-                ) {
+                JsonNode jsonCidade = objectMapper.readTree(conteudoCidade);
+                JsonNode destinosCidade = jsonCidade.path("destinos");
+                if (!destinosCidade.isArray() || destinosCidade.size() != 1) {
                     throw new IllegalStateException(
-                            "A maIA retornou um destino em formato invÃ¡lido."
-                    );
+                            "A maIA não retornou exatamente um destino para "
+                                    + cidadeSelecionada);
                 }
 
-                com.fasterxml.jackson.databind.node.ObjectNode destinoComAvaliacao =
-                        (com.fasterxml.jackson.databind.node.ObjectNode)
-                                destinoDetalhado;
+                JsonNode destinoDetalhado = destinosCidade.get(0);
+                if (!(destinoDetalhado instanceof
+                        com.fasterxml.jackson.databind.node.ObjectNode)) {
+                    throw new IllegalStateException("Destino retornado em formato inválido.");
+                }
 
-                destinoComAvaliacao.set(
-                        "avaliacoesRequisitos",
-                        avaliacaoJson.path(
-                                "avaliacoesRequisitos"
-                        )
-                );
+                String cidadeRetornada = destinoDetalhado.path("cidade")
+                        .asText("").trim();
+                String cidadeEsperada = cidadeSelecionada.split(",")[0].trim();
+                if (!normalizarCidadeRecomendacao(cidadeRetornada).equals(
+                        normalizarCidadeRecomendacao(cidadeEsperada))) {
+                    throw new IllegalStateException("A maIA trocou a cidade "
+                            + cidadeEsperada + " por " + cidadeRetornada + ".");
+                }
 
-                destinoComAvaliacao.set(
-                        "avaliacoesInteresses",
-                        avaliacaoJson.path(
-                                "avaliacoesInteresses"
-                        )
-                );
-
-                destinoComAvaliacao.put(
-                        "avaliacaoMobilidade",
-                        avaliacaoJson
-                                .path("avaliacaoMobilidade")
-                                .asText("")
-                );
-
-                destinoComAvaliacao.put(
-                        "avaliacaoRitmo",
-                        avaliacaoJson
-                                .path("avaliacaoRitmo")
-                                .asText("")
-                );
-
-                destinoComAvaliacao.put(
-                        "avaliacaoPeriodo",
-                        avaliacaoJson
-                                .path("avaliacaoPeriodo")
-                                .asText("")
-                );
-
-                destinoComAvaliacao.put(
-                        "avaliacaoOrcamento",
-                        avaliacaoJson
-                                .path("avaliacaoOrcamento")
-                                .asText("")
-                );
-
-                int compatibilidadeCalculada =
-                        calcularCompatibilidadePlanejamento(
-                                planejamento,
-                                destinoComAvaliacao
-                        );
-
-                if (
-                        destinoDetalhado
-                                instanceof com.fasterxml.jackson.databind.node.ObjectNode
-                ) {
-                    (
-                            (com.fasterxml.jackson.databind.node.ObjectNode)
-                                    destinoDetalhado
-                    ).put(
-                            "compatibilidade",
-                            compatibilidadeCalculada
-                    );
-                } else {
+                // Nunca apresentar avaliação incompleta como resultado confiável.
+                if (!destinoDetalhado.path("avaliacoesRequisitos").isArray()
+                        || !destinoDetalhado.path("avaliacoesInteresses").isArray()) {
                     throw new IllegalStateException(
-                            "A maIA retornou um destino em formato invÃ¡lido."
-                    );
+                            "Avaliações de requisitos ou interesses ausentes para "
+                                    + cidadeRetornada);
+                }
+                for (String campo : List.of("resumo", "porQueCombina",
+                        "seguranca", "mobilidade", "clima", "melhorRegiaoParaFicar",
+                        "avaliacaoMobilidade", "avaliacaoRitmo",
+                        "avaliacaoPeriodo", "avaliacaoOrcamento")) {
+                    if (destinoDetalhado.path(campo).asText("").isBlank()) {
+                        throw new IllegalStateException("Campo obrigatório ausente: "
+                                + campo + " em " + cidadeRetornada);
+                    }
+                }
+                for (String campo : List.of("caracteristicasRelevantes",
+                        "pontosPositivos", "pontosDeAtencao")) {
+                    if (!destinoDetalhado.path(campo).isArray()) {
+                        throw new IllegalStateException("Lista obrigatória ausente: "
+                                + campo + " em " + cidadeRetornada);
+                    }
                 }
 
-                System.out.println(
-                        "Planejamento maIA - compatibilidade calculada pelo Java para "
-                                + cidadeRetornada
-                                + ": "
-                                + compatibilidadeCalculada
-                                + "%."
-                );
-
-                destinosDetalhados.add(
-                        destinoDetalhado
-                );
+                int compatibilidadeCalculada = calcularCompatibilidadePlanejamento(
+                        planejamento, destinoDetalhado);
+                ((com.fasterxml.jackson.databind.node.ObjectNode) destinoDetalhado)
+                        .put("compatibilidade", compatibilidadeCalculada);
+                destinosDetalhados.add(destinoDetalhado);
+                long duracaoMs = (System.nanoTime() - inicioCidade) / 1_000_000L;
+                System.out.println("Planejamento maIA - " + cidadeRetornada
+                        + ": compatibilidade=" + compatibilidadeCalculada
+                        + "%, análise=" + duracaoMs + " ms.");
             }
 
             com.fasterxml.jackson.databind.node.ObjectNode respostaFinalJson =
@@ -2614,19 +2262,18 @@ public class GroqService {
             recomendacao
                     .getDestinos()
                     .sort(
-                            (a, b) ->
-                                    Integer.compare(
-                                            b.getCompatibilidade() == null
-                                                    ? 0
-                                                    : b.getCompatibilidade(),
-                                            a.getCompatibilidade() == null
-                                                    ? 0
-                                                    : a.getCompatibilidade()
-                                    )
+                            (a, b) -> {
+                                Integer compatibilidadeB = b.getCompatibilidade();
+                                Integer compatibilidadeA = a.getCompatibilidade();
+                                return Integer.compare(
+                                        compatibilidadeB == null ? 0 : compatibilidadeB,
+                                        compatibilidadeA == null ? 0 : compatibilidadeA
+                                );
+                            }
                     );
 
             System.out.println(
-                    "Planejamento maIA concluÃ­do: "
+                    "Planejamento maIA concluído: "
                             + recomendacao.getDestinos().size()
                             + " cidade(s) distinta(s) e detalhada(s)."
             );
@@ -2635,7 +2282,7 @@ public class GroqService {
 
         } catch (Exception e) {
             throw new IllegalStateException(
-                    "NÃ£o foi possÃ­vel gerar recomendaÃ§Ãµes: " + e.getMessage(),
+                    "Não foi possível gerar recomendações: " + e.getMessage(),
                     e
             );
         }
@@ -2661,38 +2308,38 @@ public class GroqService {
                 "AINDA_NAO_SEI".equalsIgnoreCase(planejamento.getDestino())
         ) {
             restricao =
-                    "Nenhuma. A viajante aceita recomendaÃ§Ãµes sem regiÃ£o previamente definida.";
+                    "Nenhuma. A viajante aceita recomendações sem região previamente definida.";
         } else {
             restricao =
-                    "ObrigatÃ³ria: todas as recomendaÃ§Ãµes devem estar geograficamente em "
+                    "Obrigatória: todas as recomendações devem estar geograficamente em "
                             + destinoInformado
                             + ".";
         }
 
         return """
                 PERFIL DA VIAGEM
-                RestriÃ§Ã£o geogrÃ¡fica: %s
-                PerÃ­odo: %s
-                OrÃ§amento aproximado: %s
+                Restrição geográfica: %s
+                Período: %s
+                Orçamento aproximado: %s
                 Ritmo desejado: %s
                 Mobilidade desejada: %s
                 Interesses: %s
-                NÃ£o pode faltar / requisitos indispensÃ¡veis: %s
+                Não pode faltar / requisitos indispensáveis: %s
                 Detalhes adicionais: %s
 
-                Os requisitos indispensÃ¡veis sÃ£o a Ãºnica lista de critÃ©rios de
-                prioridade mÃ¡xima. NÃ£o duplique peso porque um requisito tambÃ©m
-                apareÃ§a no texto livre.
+                Os requisitos indispensáveis são a única lista de critérios de
+                prioridade máxima. Não duplique peso porque um requisito também
+                apareça no texto livre.
 
-                REGRA DE INTERPRETAÃ‡ÃƒO:
-                Se "Ãguas quentes" aparecer em contexto de praia, mar, litoral,
-                banho ou piscinas naturais, interprete como ÃGUA DO MAR QUENTE OU
-                MORNA. NÃ£o interprete como termas ou fontes termais sem pedido
-                explÃ­cito da viajante.
+                REGRA DE INTERPRETAÇÃO:
+                Se "Águas quentes" aparecer em contexto de praia, mar, litoral,
+                banho ou piscinas naturais, interprete como ÁGUA DO MAR QUENTE OU
+                MORNA. Não interprete como termas ou fontes termais sem pedido
+                explícito da viajante.
 
-                Interprete o texto livre semanticamente. ExpressÃµes como
-                "nÃ£o quero", "preciso", "nÃ£o abro mÃ£o", "tem que ter" e
-                "indispensÃ¡vel" sÃ£o restriÃ§Ãµes fortes.
+                Interprete o texto livre semanticamente. Expressões como
+                "não quero", "preciso", "não abro mão", "tem que ter" e
+                "indispensável" são restrições fortes.
                 """.formatted(
                         restricao,
                         valorOuNaoInformado(planejamento.getPeriodo()),
@@ -2706,7 +2353,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // FUNÃ‡Ã•ES AUXILIARES
+    // FUNÇÕES AUXILIARES
     // =========================================================
 
     private String valorOuNaoInformado(
@@ -2716,7 +2363,7 @@ public class GroqService {
         if (
                 valor == null
         ) {
-            return "NÃ£o informado";
+            return "Não informado";
         }
 
         String texto =
@@ -2727,7 +2374,7 @@ public class GroqService {
         if (
                 texto.isBlank()
         ) {
-            return "NÃ£o informado";
+            return "Não informado";
         }
 
         return texto;
@@ -2758,7 +2405,7 @@ public class GroqService {
         ) {
 
             throw new IllegalStateException(
-                    "A maIA nÃ£o retornou recomendaÃ§Ãµes vÃ¡lidas."
+                    "A maIA não retornou recomendações válidas."
             );
         }
 
@@ -2773,7 +2420,7 @@ public class GroqService {
         ) {
 
             System.out.println(
-                    " ValidaÃ§Ã£o de destinos: "
+                    " Validação de destinos: "
                             + quantidadeRecebida
                             + " recebidos; eram esperados de 1 a 3."
             );
@@ -2804,7 +2451,7 @@ public class GroqService {
 
             if (cidade.isBlank()) {
                 throw new IllegalStateException(
-                        "A maIA retornou um destino sem cidade vÃ¡lida."
+                        "A maIA retornou um destino sem cidade válida."
                 );
             }
 
@@ -2812,23 +2459,23 @@ public class GroqService {
         }
 
         System.out.println(
-                " ValidaÃ§Ã£o de destinos: "
+                " Validação de destinos: "
                         + quantidadeRecebida
                         + " recebidos / "
                         + cidadesUnicas.size()
-                        + " cidades Ãºnicas."
+                        + " cidades únicas."
         );
 
         if (cidadesUnicas.size() != quantidadeRecebida) {
             throw new IllegalStateException(
                     "A maIA retornou cidades repetidas. "
-                            + "Todas as recomendaÃ§Ãµes devem ser cidades diferentes."
+                            + "Todas as recomendações devem ser cidades diferentes."
             );
         }
     }
 
     // =========================================================
-    // DETECÃ‡ÃƒO DE TOOL USE INDESEJADO NO CHAT
+    // DETECÇÃO DE TOOL USE INDESEJADO NO CHAT
     // =========================================================
 
     private boolean erroDeTentativaDeToolUse(
@@ -2861,7 +2508,7 @@ public class GroqService {
     }
 
     // =========================================================
-    // REQUISIÃ‡ÃƒO PARA GROQ
+    // REQUISIÇÃO PARA GROQ
     // =========================================================
 
     private String executarRequisicao(
@@ -2900,7 +2547,7 @@ public class GroqService {
                         )
                         .header(
                                 "Content-Type",
-                                "application/json"
+                                "application/json; charset=UTF-8"
                         )
                         .POST(
                                 HttpRequest
@@ -2911,25 +2558,55 @@ public class GroqService {
                         )
                         .build();
 
-        HttpResponse<String> response =
-                httpClient
-                        .send(
-                                request,
-                                HttpResponse
-                                        .BodyHandlers
-                                        .ofString()
-                        );
+        HttpResponse<String> response = null;
+        final int maxTentativas = 4;
 
-        if (
-                response.statusCode() < 200 ||
-                response.statusCode() >= 300
-        ) {
+        for (int tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+            response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)
+            );
 
+            if (response.statusCode() != 429) {
+                break;
+            }
+
+            if (tentativa == maxTentativas) {
+                throw new IllegalStateException(
+                        "Limite temporário de uso da Groq atingido. Tente novamente em instantes."
+                );
+            }
+
+            long esperaMs = Math.min(30000L, 2000L * tentativa);
+            String retryAfter = response.headers().firstValue("Retry-After").orElse("");
+            try {
+                if (!retryAfter.isBlank()) {
+                    esperaMs = Math.max(esperaMs,
+                            (long) (Double.parseDouble(retryAfter.trim()) * 1000));
+                } else {
+                    JsonNode erro = objectMapper.readTree(response.body());
+                    String mensagem = erro.path("error").path("message").asText("");
+                    java.util.regex.Matcher matcher = java.util.regex.Pattern
+                            .compile("(?i)try again in\\s+([0-9]+(?:\\.[0-9]+)?)s")
+                            .matcher(mensagem);
+                    if (matcher.find()) {
+                        esperaMs = Math.max(esperaMs,
+                                (long) (Double.parseDouble(matcher.group(1)) * 1000) + 500);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Usa a espera progressiva quando não houver prazo válido.
+            }
+
+            esperaMs = Math.min(60000L, esperaMs);
+            System.out.println("Groq HTTP 429: aguardando " + esperaMs
+                    + " ms antes da tentativa " + (tentativa + 1) + ".");
+            Thread.sleep(esperaMs);
+        }
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException(
-                    "Erro da Groq. HTTP "
-                            + response.statusCode()
-                            + ": "
-                            + response.body()
+                    "Erro da Groq. HTTP " + response.statusCode() + ": " + response.body()
             );
         }
 
@@ -3015,9 +2692,9 @@ public class GroqService {
         );
 
         /*
-         * Alguns modelos podem consumir todo o orÃ§amento de completion
-         * antes de produzir o conteÃºdo final. Se isso acontecer, fazemos
-         * uma Ãºnica nova tentativa com um orÃ§amento maior.
+         * Alguns modelos podem consumir todo o orçamento de completion
+         * antes de produzir o conteúdo final. Se isso acontecer, fazemos
+         * uma única nova tentativa com um orçamento maior.
          */
         if (
                 permitirNovaTentativa &&
@@ -3056,7 +2733,7 @@ public class GroqService {
             );
 
             System.out.println(
-                    " Repetindo chamada Ã  Groq com max_completion_tokens="
+                    " Repetindo chamada à Groq com max_completion_tokens="
                             + novoLimite
             );
 
@@ -3067,7 +2744,7 @@ public class GroqService {
         }
 
         throw new IllegalStateException(
-                "A Groq respondeu sem conteÃºdo. finish_reason="
+                "A Groq respondeu sem conteúdo. finish_reason="
                         + (
                                 finishReason.isBlank()
                                         ? "(ausente)"
@@ -3097,7 +2774,7 @@ public class GroqService {
                         requisitos,
                         destinoDetalhado.path("avaliacoesRequisitos"),
                         60.0,
-                        "requisitos indispensÃ¡veis"
+                        "requisitos indispensáveis"
                 );
 
         ResultadoBloco interessesResultado =
@@ -3126,14 +2803,14 @@ public class GroqService {
                 calcularCriterioUnico(
                         destinoDetalhado.path("avaliacaoPeriodo").asText(""),
                         5.0,
-                        "perÃ­odo"
+                        "período"
                 );
 
         ResultadoCriterio orcamentoResultado =
                 calcularCriterioUnico(
                         destinoDetalhado.path("avaliacaoOrcamento").asText(""),
                         5.0,
-                        "orÃ§amento"
+                        "orçamento"
                 );
 
         double pontosObtidos =
@@ -3154,7 +2831,7 @@ public class GroqService {
 
         if (pesoAvaliado <= 0.0) {
             throw new IllegalStateException(
-                    "NÃ£o houve critÃ©rios verificÃ¡veis suficientes para calcular a compatibilidade."
+                    "Não houve critérios verificáveis suficientes para calcular a compatibilidade."
             );
         }
 
@@ -3164,7 +2841,7 @@ public class GroqService {
                                 0.0,
                                 Math.min(
                                         100.0,
-                                        (pontosObtidos / pesoAvaliado) * 100.0
+                                        pontosObtidos
                                 )
                         )
                 );
@@ -3202,12 +2879,12 @@ public class GroqService {
                         + "/"
                         + formatarPontos(ritmoResultado.pesoAvaliado())
                         + " avaliados de 5"
-                        + ", perÃ­odo="
+                        + ", período="
                         + formatarPontos(periodoResultado.pontosObtidos())
                         + "/"
                         + formatarPontos(periodoResultado.pesoAvaliado())
                         + " avaliados de 5"
-                        + ", orÃ§amento="
+                        + ", orçamento="
                         + formatarPontos(orcamentoResultado.pontosObtidos())
                         + "/"
                         + formatarPontos(orcamentoResultado.pesoAvaliado())
@@ -3241,7 +2918,7 @@ public class GroqService {
 
         if (!avaliacoes.isArray() || avaliacoes.size() != criteriosEsperados.size()) {
             throw new IllegalStateException(
-                    "A maIA retornou uma quantidade invÃ¡lida de avaliaÃ§Ãµes para "
+                    "A maIA retornou uma quantidade inválida de avaliações para "
                             + nomeBloco
                             + "."
             );
@@ -3260,7 +2937,7 @@ public class GroqService {
 
             if (criterio.isBlank()) {
                 throw new IllegalStateException(
-                        "A maIA retornou uma avaliaÃ§Ã£o sem critÃ©rio em "
+                        "A maIA retornou uma avaliação sem critério em "
                                 + nomeBloco
                                 + "."
                 );
@@ -3271,7 +2948,7 @@ public class GroqService {
 
             if (statusPorCriterio.put(chave, status) != null) {
                 throw new IllegalStateException(
-                        "A maIA repetiu um critÃ©rio na avaliaÃ§Ã£o de "
+                        "A maIA repetiu um critério na avaliação de "
                                 + nomeBloco
                                 + ": "
                                 + criterio
@@ -3296,7 +2973,7 @@ public class GroqService {
 
             if (status == null) {
                 throw new IllegalStateException(
-                        "A maIA nÃ£o avaliou o critÃ©rio "
+                        "A maIA não avaliou o critério "
                                 + criterioEsperado
                                 + " em "
                                 + nomeBloco
@@ -3308,7 +2985,7 @@ public class GroqService {
                     normalizarStatusAvaliacao(status);
 
             System.out.println(
-                    " AvaliaÃ§Ã£o "
+                    " Avaliação "
                             + nomeBloco
                             + " - "
                             + criterioEsperado
@@ -3343,7 +3020,7 @@ public class GroqService {
                 normalizarStatusAvaliacao(status);
 
         System.out.println(
-                " AvaliaÃ§Ã£o "
+                " Avaliação "
                         + nome
                         + ": "
                         + normalizado
@@ -3382,7 +3059,7 @@ public class GroqService {
                     normalizado;
             default ->
                     throw new IllegalStateException(
-                            "A maIA retornou um status de avaliaÃ§Ã£o invÃ¡lido: "
+                            "A maIA retornou um status de avaliação inválido: "
                                     + (
                                             status == null
                                                     ? "(nulo)"

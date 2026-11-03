@@ -1,5 +1,5 @@
 import { API_URL } from '@/services/api';
-import { buscarUsuario } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
 
 import * as Location from 'expo-location';
 
@@ -313,6 +313,7 @@ export default function MaiaScreen() {
 
     try {
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
       const response =
         await fetch(
           `${API_URL}/ia/interpretar`,
@@ -323,6 +324,7 @@ export default function MaiaScreen() {
             headers: {
               'Content-Type':
                 'application/json',
+              ...headersAutenticacao,
             },
 
             body:
@@ -964,6 +966,7 @@ export default function MaiaScreen() {
           paginaLocaisAtualRef.current,
       };
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
       const response =
         await fetch(
           `${API_URL}/ia/conversar`,
@@ -976,6 +979,7 @@ export default function MaiaScreen() {
 
               'Content-Type':
                 'application/json',
+              ...headersAutenticacao,
             },
 
             body:

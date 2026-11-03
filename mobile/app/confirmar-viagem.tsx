@@ -1,4 +1,4 @@
-import { API_URL } from '@/services/api';
+import { fetchAutenticado } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
 
 import {
@@ -14,6 +14,7 @@ import {
 
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -299,8 +300,8 @@ export default function ConfirmarViagemScreen() {
             );
 
             const response =
-              await fetch(
-                `${API_URL}/geocoding/sugestoes?texto=${encodeURIComponent(
+              await fetchAutenticado(
+                `/geocoding/sugestoes?texto=${encodeURIComponent(
                   texto
                 )}`
               );
@@ -636,8 +637,8 @@ export default function ConfirmarViagemScreen() {
       );
 
     const response =
-      await fetch(
-        `${API_URL}/geocoding/buscar?texto=${encodeURIComponent(
+      await fetchAutenticado(
+        `/geocoding/buscar?texto=${encodeURIComponent(
           textoBusca
         )}`
       );
@@ -783,8 +784,8 @@ export default function ConfirmarViagemScreen() {
       );
 
       const response =
-        await fetch(
-          `${API_URL}/viagens`,
+        await fetchAutenticado(
+          `/viagens`,
           {
             method:
               'POST',
@@ -821,6 +822,8 @@ export default function ConfirmarViagemScreen() {
         viagemCriada
       );
 
+      DeviceEventEmitter.emit('maia:viagem-confirmada');
+
       Alert.alert(
         'Viagem confirmada',
         `${cidade} agora faz parte das suas próximas viagens.`,
@@ -831,7 +834,7 @@ export default function ConfirmarViagemScreen() {
 
             onPress: () =>
               router.replace(
-                '/(tabs)/viagens'
+                '/viagens'
               ),
           },
         ]

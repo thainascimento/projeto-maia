@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { API_URL } from '@/services/api';
+import { obterHeadersAutenticacao } from '@/services/auth';
 
 type Local = {
   id: string;
@@ -175,10 +176,12 @@ export default function LocaisScreen() {
       setCarregandoLocalizacao(true);
       setErro('');
 
+      const headers = await obterHeadersAutenticacao();
       const response = await fetch(
         `${API_URL}/geocoding/buscar?texto=${encodeURIComponent(
           texto
-        )}`
+        )}`,
+        { headers: { ...headers, Accept: 'application/json' } }
       );
 
       if (!response.ok) {
@@ -266,8 +269,10 @@ export default function LocaisScreen() {
           categoriaSelecionada
         );
 
+      const headers = await obterHeadersAutenticacao();
       const response = await fetch(
-        `${API_URL}/locais/proximos?lat=${latitude}&lon=${longitude}&categoria=${categoriaApi}`
+        `${API_URL}/locais/proximos?lat=${latitude}&lon=${longitude}&categoria=${categoriaApi}`,
+        { headers: { ...headers, Accept: 'application/json' } }
       );
 
       if (!response.ok) {

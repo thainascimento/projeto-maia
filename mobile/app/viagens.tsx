@@ -1,7 +1,8 @@
-import { API_URL } from '@/services/api';
+import { fetchAutenticado } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -21,10 +22,8 @@ import {
   View,
 } from 'react-native';
 
-import {
-  GestureHandlerRootView,
-  Swipeable,
-} from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 type StatusViagem =
   | 'PLANEJADA'
@@ -760,9 +759,7 @@ export default function ViagensScreen() {
     viagens,
     setViagens,
   ] =
-    useState<
-      Viagem[]
-    >([]);
+    useState<Viagem[]>([]);
 
   const [
     filtro,
@@ -842,9 +839,19 @@ export default function ViagensScreen() {
       >
     >({});
 
-  useEffect(() => {
-    carregarViagens();
-  }, []);
+  const [
+    finalizandoId,
+    setFinalizandoId
+  ] =
+    useState<
+      number | null
+    >(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      void carregarViagens();
+    }, [])
+  );
 
   async function carregarClima(
     viagem: Viagem
@@ -876,8 +883,8 @@ export default function ViagensScreen() {
       );
 
       const response =
-        await fetch(
-          `${API_URL}/clima?lat=${viagem.latitude}&lon=${viagem.longitude}`
+        await fetchAutenticado(
+          `/clima?lat=${viagem.latitude}&lon=${viagem.longitude}`
         );
 
       if (
@@ -955,8 +962,8 @@ export default function ViagensScreen() {
       );
 
       const response =
-        await fetch(
-          `${API_URL}/mare?lat=${viagem.latitude}&lon=${viagem.longitude}`
+        await fetchAutenticado(
+          `/mare?lat=${viagem.latitude}&lon=${viagem.longitude}`
         );
 
       if (
@@ -1031,8 +1038,8 @@ export default function ViagensScreen() {
       }
 
       const response =
-        await fetch(
-          `${API_URL}/viagens?usuarioId=${usuario.id}`
+        await fetchAutenticado(
+          `/viagens?usuarioId=${usuario.id}`
         );
 
       if (
@@ -1124,8 +1131,8 @@ export default function ViagensScreen() {
       );
 
       const response =
-        await fetch(
-          `${API_URL}/viagens/${viagem.id}/cancelar`,
+        await fetchAutenticado(
+          `/viagens/${viagem.id}/cancelar`,
           {
             method:
               'POST',
@@ -1182,6 +1189,71 @@ export default function ViagensScreen() {
         null
       );
     }
+  }
+
+    async function finalizarViagem(viagem: Viagem) {
+    try {
+      setFinalizandoId(viagem.id);
+
+      const response = await fetchAutenticado(
+        `/viagens/${viagem.id}/finalizar`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (!response.ok) {
+        const mensagem = await response.text();
+
+        throw new Error(
+          mensagem || `Erro HTTP: ${response.status}`
+        );
+      }
+
+      const viagemFinalizada: Viagem =
+        await response.json();
+
+      setViagens((viagensAtuais) =>
+        viagensAtuais.map((item) =>
+          item.id === viagemFinalizada.id
+            ? viagemFinalizada
+            : item
+        )
+      );
+
+      Alert.alert(
+        'Viagem finalizada',
+        `${viagem.destino} foi movida para suas viagens anteriores.`
+      );
+    } catch (error) {
+      console.error('Erro ao finalizar viagem:', error);
+
+      Alert.alert(
+        'Não foi possível finalizar',
+        error instanceof Error
+          ? error.message
+          : 'Tente novamente.'
+      );
+    } finally {
+      setFinalizandoId(null);
+    }
+  }
+
+  function confirmarFinalizacao(viagem: Viagem) {
+    Alert.alert(
+      'Finalizar viagem?',
+      `Deseja realmente finalizar sua viagem para ${viagem.destino}?`,
+      [
+        {
+          text: 'Continuar viagem',
+          style: 'cancel',
+        },
+        {
+          text: 'Finalizar viagem',
+          onPress: () => finalizarViagem(viagem),
+        },
+      ]
+    );
   }
 
   function confirmarCancelamento(
@@ -3027,17 +3099,34 @@ export default function ViagensScreen() {
           </Text>
         )}
 
-        {item.status ===
-          'EM_ANDAMENTO' &&
-          renderClima(
-            item
-          )}
+                {item.status === 'EM_ANDAMENTO' &&
+          renderClima(item)}
 
-        {item.status ===
-          'EM_ANDAMENTO' &&
-          renderMare(
-            item
-          )}
+        {item.status === 'EM_ANDAMENTO' &&
+          renderMare(item)}
+
+        {item.status === 'EM_ANDAMENTO' && (
+          <Pressable
+            style={[
+              styles.finishTripButton,
+              finalizandoId === item.id &&
+                styles.finishTripButtonDisabled,
+            ]}
+            onPress={() => confirmarFinalizacao(item)}
+            disabled={finalizandoId === item.id}
+          >
+            {finalizandoId === item.id ? (
+              <ActivityIndicator
+                size="small"
+                color="#ffffff"
+              />
+            ) : (
+              <Text style={styles.finishTripButtonText}>
+                Finalizar viagem
+              </Text>
+            )}
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -3383,7 +3472,7 @@ export default function ViagensScreen() {
                     styles.swipeContainer
                   }
                 >
-                  <Swipeable
+                  <ReanimatedSwipeable
                     renderRightActions={() =>
                       renderAcaoDireita(
                         item
@@ -3402,7 +3491,7 @@ export default function ViagensScreen() {
                     {renderCard(
                       item
                     )}
-                  </Swipeable>
+                  </ReanimatedSwipeable>
                 </View>
               ) : (
                 renderCard(
@@ -4392,4 +4481,26 @@ const styles =
       fontSize: 14,
       opacity: 0.78,
     },
+
+        finishTripButton: {
+      marginTop: 18,
+      minHeight: 48,
+      borderRadius: 13,
+      backgroundColor: '#6d28d9',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+    },
+
+    finishTripButtonDisabled: {
+      opacity: 0.65,
+    },
+
+    finishTripButtonText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+
+
   });

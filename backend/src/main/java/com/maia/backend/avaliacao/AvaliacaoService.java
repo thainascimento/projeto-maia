@@ -1,3 +1,4 @@
+
 package com.maia.backend.avaliacao;
 
 import java.time.LocalDateTime;
@@ -5,7 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.maia.backend.visita.Visita;
 import com.maia.backend.visita.VisitaRepository;
@@ -24,9 +27,17 @@ public class AvaliacaoService {
         this.visitaRepository = visitaRepository;
     }
 
+    @Transactional
     public Avaliacao criarAvaliacao(
-            Avaliacao avaliacao
+            Avaliacao avaliacao,
+            Long usuarioIdAutenticado
     ) {
+
+        if (usuarioIdAutenticado == null) {
+            throw new AccessDeniedException(
+                    "Usuária não autenticada."
+            );
+        }
 
         if (avaliacao.getVisitaId() == null) {
             throw new IllegalArgumentException(
@@ -45,21 +56,32 @@ public class AvaliacaoService {
             );
         }
 
-        Visita visita =
-                visitaEncontrada.get();
+        Visita visita = visitaEncontrada.get();
 
+        // Verifica se a visita pertence à usuária autenticada.
+        if (!usuarioIdAutenticado.equals(
+                visita.getUsuarioId()
+        )) {
+            throw new AccessDeniedException(
+                    "Você não pode avaliar a visita de outra usuária."
+            );
+        }
+
+        // A visita precisa ter sido finalizada.
         if (visita.getCheckOut() == null) {
             throw new IllegalStateException(
                     "A visita ainda não possui check-out."
             );
         }
 
+        // Impede avaliar novamente uma visita já avaliada.
         if (visita.isAvaliada()) {
             throw new IllegalStateException(
                     "Esta visita já foi avaliada."
             );
         }
 
+        // Valida a nota geral.
         if (
                 avaliacao.getNotaGeral() == null ||
                 avaliacao.getNotaGeral() < 1 ||
@@ -70,6 +92,7 @@ public class AvaliacaoService {
             );
         }
 
+        // Valida a nota de segurança.
         if (
                 avaliacao.getSeguranca() == null ||
                 avaliacao.getSeguranca() < 1 ||
@@ -80,12 +103,14 @@ public class AvaliacaoService {
             );
         }
 
+        // Verifica se a usuária informou se iria sozinha.
         if (avaliacao.getIriaSozinha() == null) {
             throw new IllegalArgumentException(
                     "Informe se você se sentiria confortável vindo sozinha."
             );
         }
 
+        // Verifica a percepção do entorno.
         if (
                 avaliacao.getPercepcaoEntorno() == null ||
                 avaliacao.getPercepcaoEntorno().isBlank()
@@ -95,21 +120,24 @@ public class AvaliacaoService {
             );
         }
 
+        // O backend controla os campos internos.
         avaliacao.setId(null);
 
         avaliacao.setUsuarioId(
-                visita.getUsuarioId()
+                usuarioIdAutenticado
         );
 
         avaliacao.setCriadaEm(
                 LocalDateTime.now()
         );
 
+        // Salva a avaliação.
         Avaliacao avaliacaoSalva =
                 avaliacaoRepository.save(
                         avaliacao
                 );
 
+        // Marca a visita como avaliada.
         visita.setAvaliada(true);
 
         visitaRepository.save(
@@ -119,6 +147,7 @@ public class AvaliacaoService {
         return avaliacaoSalva;
     }
 
+    // Busca avaliações relacionadas a um local.
     public List<Avaliacao> buscarPorLocal(
             String localId
     ) {
@@ -143,6 +172,7 @@ public class AvaliacaoService {
                 );
     }
 
+    // Busca as avaliações da usuária.
     public List<AvaliacaoResponse> buscarMinhasAvaliacoes(
             Long usuarioId
     ) {

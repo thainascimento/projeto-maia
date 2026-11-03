@@ -212,7 +212,7 @@ export default function CadastroScreen() {
 
             onPress: () => {
               router.replace(
-                '/(tabs)/perfil'
+                '/perfil'
               );
             },
           },

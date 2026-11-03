@@ -7,10 +7,13 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.maia.backend.local.LocalResponse;
 
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
 
 @Service
 public class GeoapifyPlacesService {
@@ -65,13 +68,16 @@ public class GeoapifyPlacesService {
             return List.of();
         }
 
+        validarCoordenadas(latitude, longitude);
+
         String categoriaGeoapify =
                 converterCategoria(
                         categoria
                 );
 
-        String respostaJson =
-                restClient
+        String respostaJson;
+        try {
+            respostaJson = restClient
                         .get()
                         .uri(uriBuilder ->
                                 uriBuilder
@@ -116,6 +122,9 @@ public class GeoapifyPlacesService {
                         .body(
                                 String.class
                         );
+        } catch (RestClientException e) {
+            throw erroConsultaGeoapify("busca de locais", e);
+        }
 
         List<LocalResponse> locais =
                 new ArrayList<>();
@@ -132,7 +141,7 @@ public class GeoapifyPlacesService {
             Map<String, Object> resposta =
                     objectMapper.readValue(
                             respostaJson,
-                            Map.class
+                            new TypeReference<Map<String, Object>>() {}
                     );
 
             Object featuresObj =
@@ -188,36 +197,6 @@ public class GeoapifyPlacesService {
                     continue;
                 }
 
-                // =====================================================
-                // LOG TEMPORÁRIO PARA DIAGNÓSTICO
-                // =====================================================
-
-                System.out.println();
-                System.out.println(
-                        "=========================================="
-                );
-                System.out.println(
-                        "GEOAPIFY - LOCAL: " + nome
-                );
-                System.out.println(
-                        "=========================================="
-                );
-
-                System.out.println(
-                        objectMapper
-                                .writerWithDefaultPrettyPrinter()
-                                .writeValueAsString(
-                                        properties
-                                )
-                );
-
-                System.out.println(
-                        "=========================================="
-                );
-                System.out.println();
-
-                // =====================================================
-
                 Object coordinatesObj =
                         geometry.get(
                                 "coordinates"
@@ -239,6 +218,10 @@ public class GeoapifyPlacesService {
                 double lat =
                         ((Number) coordinates.get(1))
                                 .doubleValue();
+
+                if (!coordenadasValidas(lat, lon)) {
+                    continue;
+                }
 
                 String endereco =
                         primeiroTexto(
@@ -493,8 +476,11 @@ public class GeoapifyPlacesService {
             double longitude
     ) {
 
-        String respostaJson =
-                restClient
+        validarCoordenadas(latitude, longitude);
+
+        String respostaJson;
+        try {
+            respostaJson = restClient
                         .get()
                         .uri(uriBuilder ->
                                 uriBuilder
@@ -527,6 +513,9 @@ public class GeoapifyPlacesService {
                         .body(
                                 String.class
                         );
+        } catch (RestClientException e) {
+            throw erroConsultaGeoapify("geocodificação reversa", e);
+        }
 
         if (
                 respostaJson == null ||
@@ -540,7 +529,7 @@ public class GeoapifyPlacesService {
             Map<String, Object> resposta =
                     objectMapper.readValue(
                             respostaJson,
-                            Map.class
+                            new TypeReference<Map<String, Object>>() {}
                     );
 
             Object resultsObj =
@@ -608,6 +597,53 @@ public class GeoapifyPlacesService {
             double latitude,
             double longitude
     ) {
+    }
+
+    // =========================================================
+    // VALIDAÇÃO E ERROS DA API
+    // =========================================================
+
+    private boolean coordenadasValidas(double latitude, double longitude) {
+        return Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && latitude >= -90.0
+                && latitude <= 90.0
+                && longitude >= -180.0
+                && longitude <= 180.0;
+    }
+
+    private void validarCoordenadas(double latitude, double longitude) {
+        if (!coordenadasValidas(latitude, longitude)) {
+            throw new IllegalArgumentException(
+                    "Coordenadas inválidas: latitude deve estar entre -90 e 90 "
+                            + "e longitude entre -180 e 180."
+            );
+        }
+    }
+
+    private IllegalStateException erroConsultaGeoapify(
+            String operacao,
+            RestClientException erro
+    ) {
+        if (erro instanceof RestClientResponseException respostaErro) {
+            int status = respostaErro.getStatusCode().value();
+            String orientacao = status == 429
+                    ? "Limite de requisições atingido. Tente novamente mais tarde."
+                    : status >= 500
+                            ? "O serviço Geoapify está indisponível ou apresentou falha."
+                            : status == 401 || status == 403
+                                    ? "Verifique a chave e as permissões da API Geoapify."
+                                    : "Verifique os parâmetros e a configuração da consulta.";
+            return new IllegalStateException(
+                    "Falha na " + operacao + " da Geoapify (HTTP " + status + "). "
+                            + orientacao,
+                    erro
+            );
+        }
+        return new IllegalStateException(
+                "Falha de comunicação com a Geoapify durante " + operacao + ".",
+                erro
+        );
     }
 
     // =========================================================

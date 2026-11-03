@@ -1,10 +1,11 @@
-import { API_URL } from '@/services/api';
+import { fetchAutenticado } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -175,6 +176,36 @@ export default function PlanejamentoScreen() {
     destinosRecomendados,
     setDestinosRecomendados,
   ] = useState<DestinoRecomendado[]>([]);
+
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener(
+      'maia:viagem-confirmada',
+      () => {
+        setModoPlanejamento('ESCOLHA');
+        setPeriodo('');
+        setDataIda(null);
+        setDataVolta(null);
+        setMesCalendario(
+          new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            1
+          )
+        );
+        setCalendarioVisivel(false);
+        setOrcamentoValor(0);
+        setRitmoDestino(null);
+        setMobilidade(null);
+        setInteresses([]);
+        setIndispensaveis([]);
+        setRequisitosIndispensaveis('');
+        setDestinosRecomendados([]);
+        setCarregando(false);
+      }
+    );
+
+    return () => assinatura.remove();
+  }, []);
 
   function alternarInteresse(
     interesse: Interesse
@@ -642,8 +673,8 @@ export default function PlanejamentoScreen() {
       );
 
       const response =
-        await fetch(
-          `${API_URL}/planejamentos`,
+        await fetchAutenticado(
+          `/planejamentos`,
           {
             method:
               'POST',
@@ -875,7 +906,7 @@ export default function PlanejamentoScreen() {
           }
           onPress={() =>
             router.push(
-              '/(tabs)/viagens'
+              '/viagens'
             )
           }
         >
@@ -1009,7 +1040,7 @@ export default function PlanejamentoScreen() {
           }
           onPress={() =>
             router.push(
-              '/(tabs)/viagens'
+              '/viagens'
             )
           }
         >
