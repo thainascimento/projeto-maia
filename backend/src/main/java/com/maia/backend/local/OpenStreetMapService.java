@@ -222,11 +222,18 @@ public class OpenStreetMapService {
                             "[\"amenity\"=\"pharmacy\"]"
                     );
 
+            case "hospital",
+                 "hospitais" ->
+                    List.of(
+                            "[\"amenity\"=\"hospital\"]"
+                    );
+
             case "praia",
                  "praias" ->
                     List.of(
                             "[\"natural\"=\"beach\"]"
                     );
+    
 
             default ->
                     List.of(

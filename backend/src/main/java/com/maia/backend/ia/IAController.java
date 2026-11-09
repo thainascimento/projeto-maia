@@ -101,26 +101,13 @@ public class IAController {
                 );
 
         if (interpretacao == null) {
-
-            boolean fallbackGps =
-                    mensagemPedeLocalizacaoAtual(
-                            request.mensagem()
-                    );
-
-            return ResponseEntity.ok(
-                    new GroqService.InterpretacaoIntencao(
-                            "CONVERSA_GERAL",
-                            fallbackGps
-                                    ? "GPS_ATUAL": "NENHUMA",
-                            null,
-                            fallbackGps,
-                            "NENHUMA",
-                            null,
-                            null,
-                            "NENHUM"
-                    )
-            );
-        }
+                return ResponseEntity
+                        .status(503)
+                        .body
+                        (
+                        "Não foi possível interpretar a mensagem no momento."
+                        );
+        }                
 
         return ResponseEntity.ok(
                 interpretacao
@@ -235,6 +222,38 @@ public class IAController {
                         )
                 );
 
+                boolean pedidoExplicitoGps =
+                mensagemPedeLocalizacaoAtual(
+                        request.mensagem()
+                );
+
+        boolean pedidoExplicitoDestino =
+                mensagemPedeDestinoViagem(
+                        request.mensagem()
+                );
+
+        if (
+                interpretacao != null &&
+                pedidoExplicitoGps &&
+                !pedidoExplicitoDestino &&
+                !"GPS_ATUAL".equals(
+                        interpretacao.referenciaGeografica()
+                )
+        ) {
+
+        interpretacao =
+                new GroqService.InterpretacaoIntencao(
+                        interpretacao.intencao(),
+                        "GPS_ATUAL",
+                        interpretacao.categoriaLocal(),
+                        true,
+                        interpretacao.referenciaConversacional(),
+                        interpretacao.criterio(),
+                        interpretacao.indiceLocal(),
+                        interpretacao.escopoResultados()
+                );
+        }
+
             if (interpretacao != null) {
 
                 /*
@@ -252,9 +271,18 @@ public class IAController {
 
                 } else {
                     pediuLocalizacaoAtual =
-                            "GPS_ATUAL".equals(
-                                    interpretacao.referenciaGeografica()
-                            );
+                        interpretacao.precisaGps()
+                        || "GPS_ATUAL".equals(
+                                interpretacao.referenciaGeografica()
+                        )
+                        || (
+                             mensagemPedeLocalizacaoAtual(
+                                          request.mensagem()
+                                    ) && !mensagemPedeDestinoViagem(
+                                          request.mensagem()
+                                    )   
+
+                        ); 
                 }
 
                 System.out.println(
@@ -599,6 +627,12 @@ public class IAController {
                                 paginaLocaisAtual
                         );
 
+                System.out.println(" Paginação maIA: página anterior="
+                        + request.paginaLocaisAtual()
+                        + ", página selecionada=" + paginaLocaisAtual
+                        + ", total de locais=" + todosLocaisReais.size()
+                        + ", itens na nova página=" + locaisReais.size());
+
                 /*
                 * Se não existir uma próxima página, mantemos a página
                 * anterior para não perder o contexto da conversa.
@@ -735,8 +769,9 @@ public class IAController {
                      latitudeReferencia != null &&
                      longitudeReferencia != null);
 
-            Integer indiceLocalEmFoco =
-                    definirIndiceLocalEmFoco(
+            Integer indiceLocalEmFoco = pediuMaisResultados
+                    ? null // Uma nova página não mantém o foco da página anterior.
+                    : definirIndiceLocalEmFoco(
                             interpretacao,
                             locaisReais,
                             request.indiceLocalEmFoco()
@@ -751,7 +786,22 @@ public class IAController {
                         locaisReais, indiceLocalEmFoco);
             }
 
-            String resposta = respostaDistanciaDireta != null
+            // A paginação é determinística: a Groq não precisa adivinhar
+            // se existem outras páginas nem repetir a lista anterior.
+            String respostaMaisResultados = pediuMaisResultados
+                    ? montarRespostaMaisResultados(
+                            locaisReais,
+                            todosLocaisReais,
+                            paginaLocaisAtual,
+                            request.paginaLocaisAtual() == null
+                                    ? 0
+                                    : Math.max(0, request.paginaLocaisAtual())
+                    )
+                    : null;
+
+            String resposta = respostaMaisResultados != null
+                    ? respostaMaisResultados
+                    : respostaDistanciaDireta != null
                     ? respostaDistanciaDireta
                     : groqService.conversar(
                             request.mensagem(),
@@ -2226,6 +2276,79 @@ public class IAController {
                 "aguarde",
                 "so um momento",
                 "ja volto");
+    }
+
+    /**
+     * Exibe somente a página realmente selecionada pelo backend.
+     * Evita que a Groq confunda o tamanho da página (8) com o total
+     * de resultados (por exemplo, 28) e economiza uma chamada à API.
+     */
+    private String montarRespostaMaisResultados(
+            List<LocalResponse> pagina,
+            List<LocalResponse> todos,
+            int paginaAtual,
+            int paginaAnterior
+    ) {
+        if (todos == null || todos.isEmpty()) {
+            return "Não tenho uma lista anterior de estabelecimentos para continuar. "
+                    + "Peça uma nova busca para eu encontrar opções.";
+        }
+
+        if (paginaAtual <= paginaAnterior) {
+            return "Já apresentei todas as " + todos.size()
+                    + " opções encontradas nesta busca. "
+                    + "Se quiser, posso ajudar a comparar os estabelecimentos "
+                    + "ou iniciar uma nova busca.";
+        }
+
+        if (pagina == null || pagina.isEmpty()) {
+            return "Não há mais estabelecimentos para mostrar nesta busca.";
+        }
+
+        int inicio = paginaAtual * TAMANHO_PAGINA_LOCAIS;
+        StringBuilder resposta = new StringBuilder(
+                "Encontrei mais " + pagina.size() + " opções para você "
+                + "(de " + (inicio + 1) + " a "
+                + Math.min(inicio + pagina.size(), todos.size())
+                + ", em um total de " + todos.size() + "):\n"
+        );
+
+        for (int i = 0; i < pagina.size(); i++) {
+            LocalResponse local = pagina.get(i);
+            if (local == null || local.getNome() == null
+                    || local.getNome().isBlank()) {
+                continue;
+            }
+            resposta.append("\n")
+                    .append(i + 1)
+                    .append(". ")
+                    .append(local.getNome());
+
+            if (local.getDistanciaMetros() != null) {
+                double metros = local.getDistanciaMetros();
+                String distancia = metros < 1000
+                        ? Math.round(metros) + " m"
+                        : String.format(Locale.forLanguageTag("pt-BR"),
+                                "%.1f km", metros / 1000.0);
+                resposta.append(" — aproximadamente ")
+                        .append(distancia)
+                        .append(" em linha reta");
+            }
+            if (local.getEndereco() != null && !local.getEndereco().isBlank()) {
+                resposta.append("\nEndereço: ").append(local.getEndereco());
+            }
+            if (local.getTelefone() != null && !local.getTelefone().isBlank()) {
+                resposta.append("\nTelefone: ").append(local.getTelefone());
+            }
+            resposta.append("\n");
+        }
+
+        if ((paginaAtual + 1) * TAMANHO_PAGINA_LOCAIS < todos.size()) {
+            resposta.append("\nPosso mostrar mais opções, se quiser.");
+        } else {
+            resposta.append("\nEssas são as últimas opções encontradas nesta busca.");
+        }
+        return resposta.toString().trim();
     }
 
     private String montarRespostaSeguraParaBusca(

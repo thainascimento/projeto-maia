@@ -1,4 +1,5 @@
 import { API_URL } from '@/services/api';
+import { obterHeadersAutenticacao } from '@/services/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -93,6 +94,9 @@ export default function AvaliarExperienciaScreen() {
     try {
       setEnviando(true);
 
+      const headersAutenticacao =
+        await obterHeadersAutenticacao();
+
       const response = await fetch(
         `${API_URL}/avaliacoes`,
         {
@@ -100,6 +104,7 @@ export default function AvaliarExperienciaScreen() {
           headers: {
             'Content-Type':
               'application/json',
+            ...headersAutenticacao,
           },
           body: JSON.stringify({
             visitaId: Number(params.id),
@@ -130,7 +135,9 @@ export default function AvaliarExperienciaScreen() {
           {
             text: 'OK',
             onPress: () =>
-              router.back(),
+              router.canGoBack()
+                ? router.back()
+                : router.replace('/(tabs)/conto'),
           },
         ]
       );
@@ -230,7 +237,13 @@ export default function AvaliarExperienciaScreen() {
       >
         <Pressable
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/conto');
+            }
+          }}
         >
           <Text
             style={styles.backButtonText}

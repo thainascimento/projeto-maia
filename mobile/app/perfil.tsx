@@ -1010,7 +1010,7 @@ export default function PerfilScreen() {
               styles.backButton
             }
             onPress={() =>
-              router.back()
+              router.replace('/(tabs)/inicio')
             }
           >
             <Text

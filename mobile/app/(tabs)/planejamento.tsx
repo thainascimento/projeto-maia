@@ -1,5 +1,6 @@
 import { fetchAutenticado } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
+import AvaliacoesDestino from '@/components/AvaliacoesDestino';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 
@@ -2190,6 +2191,13 @@ export default function PlanejamentoScreen() {
                       )}
                     </>
                   )}
+
+                  {/* Avaliações públicas da cidade recomendada pela maIA. */}
+                  <AvaliacoesDestino
+                    cidade={destinoItem.cidade}
+                    estado={destinoItem.estadoOuRegiao}
+                    pais={destinoItem.pais}
+                  />
 
                   {/* ESCOLHER DESTINO */}
 

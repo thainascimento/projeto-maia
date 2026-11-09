@@ -1,5 +1,5 @@
 import { API_URL } from '@/services/api';
-import { buscarUsuario } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -82,8 +82,11 @@ export default function LocalDetalhesScreen() {
         return;
       }
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
+
       const response = await fetch(
-        `${API_URL}/visitas/ativa?usuarioId=${usuario.id}`
+        `${API_URL}/visitas/ativa?usuarioId=${usuario.id}`,
+        { headers: { ...headersAutenticacao } }
       );
 
       if (response.status === 204) {
@@ -123,10 +126,13 @@ export default function LocalDetalhesScreen() {
     try {
       setCarregandoAvaliacoes(true);
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
+
       const response = await fetch(
         `${API_URL}/avaliacoes/local/${encodeURIComponent(
           params.id
-        )}`
+        )}`,
+        { headers: { ...headersAutenticacao } }
       );
 
       if (!response.ok) {
@@ -179,6 +185,8 @@ export default function LocalDetalhesScreen() {
         return;
       }
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
+
       const response = await fetch(
         `${API_URL}/visitas/check-in`,
         {
@@ -186,6 +194,7 @@ export default function LocalDetalhesScreen() {
           headers: {
             'Content-Type':
               'application/json',
+            ...headersAutenticacao,
           },
           body: JSON.stringify({
             usuarioId: usuario.id,
@@ -253,10 +262,13 @@ export default function LocalDetalhesScreen() {
     try {
       setCarregando(true);
 
+      const headersAutenticacao = await obterHeadersAutenticacao();
+
       const response = await fetch(
         `${API_URL}/visitas/${visitaAtiva.id}/check-out`,
         {
           method: 'POST',
+          headers: { ...headersAutenticacao },
         }
       );
 
@@ -663,20 +675,6 @@ export default function LocalDetalhesScreen() {
           </>
         )}
       </View>
-
-      <Pressable
-        style={styles.saveButton}
-        onPress={() => {
-          console.log(
-            'Salvar na viagem:',
-            params.id
-          );
-        }}
-      >
-        <Text style={styles.saveButtonText}>
-          Salvar na viagem
-        </Text>
-      </Pressable>
     </ScrollView>
   );
 }

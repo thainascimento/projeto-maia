@@ -51,8 +51,9 @@ public class GroqService {
                 model;
 
         this.httpClient =
-                HttpClient
-                        .newHttpClient();
+                HttpClient.newBuilder()
+                        .connectTimeout(java.time.Duration.ofSeconds(20))
+                        .build();
 
         this.objectMapper =
                 new ObjectMapper();
@@ -118,9 +119,9 @@ public class GroqService {
 
                     Categorias:
                     nightlife, cafe, restaurante, sorveteria, bar,
-                    supermercado, farmacia, praia, atracao, museu,
-                    mirante, monumento, castelo, igreja, ruina,
-                    farol, arte, natureza ou null.
+                    supermercado, farmacia, hospital, clínica, praia,
+                    atracao, museu, mirante, monumento, castelo, igreja,
+                    ruina, farol, arte, natureza ou null.
 
                     Referência conversacional:
                     RESULTADOS_ANTERIORES ou NENHUMA.
@@ -155,10 +156,27 @@ public class GroqService {
                     - Se a mensagem apenas continuar falando do local já escolhido,
                       não invente um novo indiceLocal; deixe indiceLocal=null para
                       que o foco atual seja preservado pelo sistema.
-                    - "perto de mim", "aqui perto" => GPS_ATUAL.
+                    - "perto de mim", "aqui perto", "bares próximos a mim" => GPS_ATUAL.
+                     - "quero saber de bares próximos a mim" => BUSCAR_LOCAL, bar, GPS_ATUAL, precisaGps=true.
+                     - Outros estabelecimentos e serviços seguem a mesma regra, nunca CONVERSA_GERAL.
                     - "meu destino", "na viagem" => DESTINO_VIAGEM.
                     - clima => CLIMA; maré => MARE.
                     - pedidos novos de lugares => BUSCAR_LOCAL + categoriaLocal.
+
+                    - Pedidos para encontrar hospitais, clínicas,
+                    pronto-socorros e atendimento médico próximo
+                    devem ser classificados como BUSCAR_LOCAL.
+                    - Para hospitais e pronto-socorros, use
+                    categoriaLocal=hospital.
+                    - Para clínicas médicas, use categoriaLocal=clinica.
+                    - Quando a usuária solicitar atendimento perto
+                    de onde está, use referenciaGeografica=GPS_ATUAL
+                    e precisaGps=true.
+                    - Não confunda um pedido de orientação médica
+                    com um pedido de busca de estabelecimentos.
+                    - Se houver sinais de emergência, priorize
+                    a orientação para obter socorro imediato.
+
                     - perguntas que comparam vários resultados anteriores, como
                       "qual o mais perto?" ou "qual deles tem site?", usam
                       COMPARAR_LOCAIS + RESULTADOS_ANTERIORES + critério.
@@ -191,6 +209,17 @@ public class GroqService {
                     - Não transforme uma continuação sobre um local já discutido
                       em CONVERSA_GERAL apenas porque a mensagem atual é curta.
                     - nunca invente local, cidade, coordenada ou contexto.
+                    - Classifique a mensagem atual considerando o histórico,
+                      mas priorize a solicitação mais recente da usuária.
+                    - Nunca classifique um pedido de busca de estabelecimentos,
+                      atrações ou serviços como CONVERSA_GERAL.
+                    - Quando a usuária pedir locais próximos de onde está,
+                      use referenciaGeografica=GPS_ATUAL,
+                      precisaGps=true e intencao=BUSCAR_LOCAL.
+                    - Quando a categoria não corresponder às categorias predefinidas, não transforme automaticamente a solicitação em CONVERSA_GERAL.
+                    - Se a mensagem não se encaixar em nenhuma das intenções, use CONVERSA_GERAL + NENHUMA + null + false + NENHUMA + null + null + NENHUM.
+                    - Se a mensagem for uma continuação sobre resultados anteriores, preserve a referência conversacional.
+                    - Não invente informações nem declare que uma consulta externa foi realizada. A execução dos serviços pertence ao backend.
 
                     Formato:
                     {
@@ -253,9 +282,7 @@ public class GroqService {
                             corpo
                     );
 
-            return converterRespostaInterpretacao(
-                    resposta
-            );
+            return reconciliarInterpretacao(mensagem, converterRespostaInterpretacao(resposta));
 
         } catch (Exception e) {
 
@@ -264,7 +291,9 @@ public class GroqService {
                             + e.getMessage()
             );
 
-            return null;
+            e.printStackTrace();
+
+            return reconciliarInterpretacao(mensagem, null);
         }
     }
 
@@ -366,17 +395,23 @@ public class GroqService {
                         json
                 );
 
+        JsonNode intencaoNode =
+                raiz.get("intencao");
+        if (
+                intencaoNode == null ||
+                !intencaoNode.isTextual() ||
+                intencaoNode.asText().isBlank()
+        ) {
+            return null;
+        }
+
         String intencao =
-                raiz.path(
-                        "intencao"
-                )
-                .asText(
-                        "CONVERSA_GERAL"
-                )
-                .trim()
-                .toUpperCase(
-                        Locale.ROOT
-                );
+                intencaoNode
+                        .asText()
+                        .trim()
+                        .toUpperCase(
+                                Locale.ROOT
+                        );
 
         String referencia =
                 raiz.path(
@@ -584,6 +619,103 @@ public class GroqService {
         );
     }
 
+    /**
+     * Confere a interpretação com sinais explícitos da mensagem corrente.
+     * Não reutiliza o destino da viagem quando a usuária solicita o GPS.
+     * A Groq continua responsável por pedidos livres e pelo contexto conversacional.
+     */
+    public InterpretacaoIntencao reconciliarInterpretacao(
+            String mensagem, InterpretacaoIntencao interpretacao) {
+        if (mensagem == null || mensagem.isBlank()) return interpretacao;
+        String texto = Normalizer.normalize(mensagem, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
+        boolean gps = contemExpressao(texto, "perto de mim", "proximo de mim", "proximos de mim",
+                "proxima de mim", "proximas de mim", "proximos a mim", "proximas a mim",
+                "proximo a mim", "proxima a mim", "ao meu redor", "aqui perto",
+                "perto daqui", "nas minhas proximidades", "onde estou", "onde eu estou",
+                "localizacao atual", "minha localizacao", "perto de onde estou",
+                "ao redor de mim", "por aqui onde estou");
+        boolean destino = contemExpressao(texto, "meu destino", "destino da viagem",
+                "destino da minha viagem", "na minha viagem", "nessa viagem",
+                "nesta viagem", "durante minha viagem", "onde vou viajar", "cidade da viagem");
+        String categoria = detectarCategoriaExplicita(texto);
+        String intencao = interpretacao == null ? "CONVERSA_GERAL" : interpretacao.intencao();
+        String referencia = interpretacao == null ? "NENHUMA" : interpretacao.referenciaGeografica();
+        String categoriaOriginal = interpretacao == null ? null : interpretacao.categoriaLocal();
+        boolean precisaGps = interpretacao != null && interpretacao.precisaGps();
+        String conversacional = interpretacao == null ? "NENHUMA" : interpretacao.referenciaConversacional();
+        String criterio = interpretacao == null ? null : interpretacao.criterio();
+        Integer indice = interpretacao == null ? null : interpretacao.indiceLocal();
+        String escopo = interpretacao == null ? "NENHUM" : interpretacao.escopoResultados();
+        if (intencao == null) intencao = "CONVERSA_GERAL";
+        if (referencia == null) referencia = "NENHUMA";
+        if (conversacional == null) conversacional = "NENHUMA";
+        if (escopo == null) escopo = "NENHUM";
+
+        boolean seguimento = "RESULTADOS_ANTERIORES".equals(conversacional)
+                && ("DETALHAR_LOCAL".equals(intencao) || "COMPARAR_LOCAIS".equals(intencao)
+                    || "MAIS_RESULTADOS".equals(intencao) || "REFINAR_BUSCA".equals(intencao));
+        // Uma nova categoria pedida explicitamente substitui a busca anterior.
+        if (categoria != null && ("CONVERSA_GERAL".equals(intencao)
+                || "BUSCAR_LOCAL".equals(intencao) || (gps && !destino))) {
+            intencao = "BUSCAR_LOCAL";
+            categoriaOriginal = categoria;
+            conversacional = "NENHUMA";
+            escopo = "NENHUM";
+            seguimento = false;
+        }
+        if (seguimento) {
+            referencia = "NENHUMA";
+            precisaGps = false;
+        } else if (gps && !destino) {
+            referencia = "GPS_ATUAL";
+            precisaGps = true;
+        } else if (destino && !gps) {
+            referencia = "DESTINO_VIAGEM";
+            precisaGps = false;
+        } else if ("GPS_ATUAL".equals(referencia)) {
+            precisaGps = true;
+        }
+        if ("LOCALIZACAO_ATUAL".equals(intencao) && !destino) {
+            referencia = "GPS_ATUAL";
+            precisaGps = true;
+        }
+        return new InterpretacaoIntencao(intencao, referencia, categoriaOriginal,
+                precisaGps, conversacional, criterio, indice, escopo);
+    }
+
+    private boolean contemExpressao(String texto, String... expressoes) {
+        for (String expressao : expressoes) {
+            if (texto.contains(expressao)) return true;
+        }
+        return false;
+    }
+
+    private String detectarCategoriaExplicita(String texto) {
+        // Prioridade para categorias específicas antes de termos genéricos.
+        if (texto.matches(".*\\b(bares?|pubs?|botecos?|cervejarias?)\\b.*")
+                || contemExpressao(texto, "tomar um drink", "tomar uma cerveja")) return "bar";
+        if (contemExpressao(texto, "balada", "boate", "vida noturna", "casa de show",
+                "musica ao vivo", "nightclub")) return "nightlife";
+        if (contemExpressao(texto, "cafeteria", "cafe", "espresso")) return "cafe";
+        if (contemExpressao(texto, "restaurante", "almocar", "almoco", "jantar", "onde comer")) return "restaurante";
+        if (contemExpressao(texto, "sorveteria", "sorvete", "gelateria", "gelato")) return "sorveteria";
+        if (contemExpressao(texto, "supermercado", "mercado", "mercearia")) return "supermercado";
+        if (contemExpressao(texto, "farmacia", "drogaria")) return "farmacia";
+        if (contemExpressao(texto, "praia", "praias")) return "praia";
+        if (contemExpressao(texto, "museu")) return "museu";
+        if (contemExpressao(texto, "mirante")) return "mirante";
+        if (contemExpressao(texto, "monumento", "memorial")) return "monumento";
+        if (contemExpressao(texto, "castelo", "fortaleza")) return "castelo";
+        if (contemExpressao(texto, "igreja", "catedral", "templo")) return "igreja";
+        if (contemExpressao(texto, "ruina", "sitio arqueologico")) return "ruina";
+        if (texto.matches(".*\\b(farois?|farol)\\b.*")) return "farol";
+        if (contemExpressao(texto, "arte urbana", "obra de arte", "escultura", "galeria de arte")) return "arte";
+        if (contemExpressao(texto, "natureza", "trilha", "parque natural")) return "natureza";
+        if (contemExpressao(texto, "ponto turistico", "atracao", "lugares para conhecer", "lugares para visitar")) return "atracao";
+        return null;
+    }
+
     // =========================================================
     // TESTE DA CONEXÃO COM A GROQ
     // =========================================================
@@ -673,16 +805,92 @@ public class GroqService {
 
             String promptSistema =
                     """
-                    Você é a maIA, assistente de viagem do app MAIA.
-                    Responda em português do Brasil, de forma natural, curta,
-                    prática e acolhedora. Normalmente use 1 a 3 parágrafos.
+                    Você é a maIA, uma assistente virtual inteligente e
+                    conversacional do aplicativo MAIA, especializada em
+                    viagens e segurança feminina, mas capaz de conversar
+                    sobre qualquer assunto.
+                    Adapte o tamanho e a profundidade da resposta à pergunta.
+                    Responda em português do Brasil, de forma natural, amigável,
+                    prática e acolhedora.
+                    Caso a usuária peça, responda em inglês, espanhol ou francês,
+                    mas sempre retorne ao português.
+
+                    CONVERSAS GERAIS:
+                    - Você pode conversar sobre qualquer assunto permitido,
+                    mesmo que não tenha relação com viagens.
+                    - Responda perguntas sobre tecnologia, programação,
+                    ciência, história, cultura, estudos, cotidiano,
+                    entretenimento e outros temas.
+                    - Utilize seu conhecimento geral quando não houver
+                    necessidade de consultar dados externos atualizados.
+                    - Não tente relacionar perguntas gerais a viagens.
+                    - Quando a usuária mudar de assunto, acompanhe
+                    naturalmente a nova conversa.
+                    - Não diga que você só pode ajudar com viagens.
+
 
                     Use o histórico recente para manter contexto e entender
                     referências como "o primeiro", "qual o mais perto?" e
                     "e à noite?".
 
+                    FORMATO DAS RESPOSTAS:
+                    - Responda de maneira natural e conversacional.
+                    - Não utilize tabelas ou formatação tabular.
+                    - Não utilize Markdown para criar tabelas.
+                    - Quando apresentar estabelecimentos, organize os
+                    resultados em uma lista numerada, com nome,
+                    distância e endereço quando disponíveis.
+                    - Para conversas gerais, prefira frases e parágrafos
+                    naturais, sem listas desnecessárias.
+                    - Não utilize caracteres como | para separar colunas.
+                    - Nunca apresente informações em formato de planilha.
+                    - Adapte a apresentação ao contexto da conversa.
+
+                    ASSISTÊNCIA À SAÚDE E SEGURANÇA:
+                    - A segurança e o bem-estar da usuária são prioridades.
+                    - Quando a usuária relatar mal-estar, dor, doença,
+                    medo ou necessidade de ajuda, responda com empatia.
+                    - Pergunte brevemente sobre os sintomas quando necessário,
+                    sem atrasar a orientação em situações de emergência.
+                    - Não realize diagnósticos médicos definitivos.
+                    - Não prescreva medicamentos ou dosagens.
+                    - Não minimize sintomas potencialmente graves.
+                    - Em caso de dor intensa no peito, dificuldade para respirar,
+                    sinais de AVC, perda de consciência, convulsões,
+                    hemorragia intensa ou outros sinais graves,
+                    oriente atendimento de emergência imediato.
+                    - No Brasil, informe o SAMU 192 para emergências médicas.
+                    - Em outros países, utilize o número local de emergência
+                    somente quando ele estiver confirmado.
+                    - Se o país for desconhecido, oriente a procurar
+                    imediatamente o serviço local de emergência.
+                    - Não substitua atendimento médico profissional.
+                    - Em situações não emergenciais, ofereça informações
+                    gerais e recomende avaliação profissional quando apropriado.
+                    - Se a usuária estiver sozinha e precisar de ajuda,
+                    sugira procurar uma pessoa de confiança ou um
+                    funcionário de um estabelecimento seguro.
+                    - Quando a usuária solicitar atendimento próximo,
+                    ofereça ajuda para encontrar hospitais, UPAs,
+                    pronto-socorros ou outros serviços de saúde.
+                    - Solicite permissão antes de utilizar o GPS.
+                    - Não presuma que o destino da viagem seja a
+                    localização física atual da usuária.
+                    - Nunca afirme que acionou ambulância, polícia,
+                    familiares ou serviços de emergência sem que
+                    uma integração tenha realizado essa ação.
+                    - Em risco imediato, não atrase a orientação de
+                    emergência para fazer buscas ou perguntas adicionais.
+
                     Regras de precisão:
-                    - use somente dados reais presentes nos contextos recebidos;
+                    - Para perguntas gerais, utilize seu conhecimento
+                    de linguagem e informações gerais;
+                    - Para perguntas sobre estabelecimentos, clima, marés,
+                    localização, viagens e outros dados consultados
+                    pelo backend, utilize os dados reais disponíveis
+                    nos contextos recebidos;
+                    - Nunca invente informações atuais ou afirme ter
+                    realizado consultas externas que não aconteceram;
                     - nunca invente lugares, preços, horários, avaliações,
                       eventos, segurança, clima, maré, rotas ou tempo de trajeto;
                     - GPS_ATUAL é a localização física da usuária;
@@ -878,7 +1086,7 @@ public class GroqService {
                             0.45,
 
                             "max_completion_tokens",
-                            320,
+                            1600,
 
                             // O backend do MAIA já executa Geoapify, clima,
                             // maré e demais integrações. O modelo deve apenas
@@ -886,6 +1094,10 @@ public class GroqService {
                             "tool_choice",
                             "none"
                     );
+
+            // GPT-OSS usa tokens de completion também para raciocínio.
+            // Esforço baixo deixa mais espaço para a resposta visível.
+            corpo = configurarRaciocinioLeveSeSuportado(corpo);
 
             String resposta;
 
@@ -952,7 +1164,7 @@ public class GroqService {
                                 0.35,
 
                                 "max_completion_tokens",
-                                320,
+                                1600,
 
                                 "tool_choice",
                                 "none"
@@ -960,7 +1172,7 @@ public class GroqService {
 
                 resposta =
                         executarRequisicao(
-                                corpoRetry
+                                configurarRaciocinioLeveSeSuportado(corpoRetry)
                         );
             }
 
@@ -976,6 +1188,21 @@ public class GroqService {
                     e
             );
         }
+    }
+
+    /**
+     * Somente GPT-OSS 20B/120B aceita reasoning_effort=low na Groq.
+     * Mantém intactas as requisições de outros modelos e as integrações.
+     */
+    private Map<String, Object> configurarRaciocinioLeveSeSuportado(
+            Map<String, Object> corpo) {
+        if ("openai/gpt-oss-120b".equalsIgnoreCase(model)
+                || "openai/gpt-oss-20b".equalsIgnoreCase(model)) {
+            Map<String, Object> ajustado = new java.util.LinkedHashMap<>(corpo);
+            ajustado.put("reasoning_effort", "low");
+            return ajustado;
+        }
+        return corpo;
     }
 
     // =========================================================
@@ -1982,16 +2209,29 @@ public class GroqService {
                                     Map.of("role", "user", "content", perfil)
                             ),
                             "temperature", 0.2,
-                            "max_completion_tokens", 500,
+                            "max_completion_tokens", 1100,
                             "response_format", Map.of("type", "json_object")
                     );
+            corpoSelecao = configurarRaciocinioLeveSeSuportado(corpoSelecao);
 
             System.out.println(
                     "Planejamento maIA - etapa 1/3: selecionando de 1 a 3 cidades."
             );
 
-            String conteudoSelecao = executarRequisicao(corpoSelecao);
-            JsonNode jsonSelecao = objectMapper.readTree(conteudoSelecao);
+            String conteudoSelecao;
+            try {
+                conteudoSelecao = executarRequisicao(corpoSelecao);
+            } catch (IllegalStateException erroGroq) {
+                if (!erroJsonInvalidoGroq(erroGroq)) {
+                    throw erroGroq;
+                }
+                System.out.println("Planejamento maIA - JSON inválido na seleção; "
+                        + "repetindo a seleção sem JSON mode.");
+                conteudoSelecao = executarRequisicao(
+                        corpoPlanejamentoSemJsonMode(corpoSelecao, 1600), false);
+            }
+            JsonNode jsonSelecao = objectMapper.readTree(
+                    extrairJsonPlanejamento(conteudoSelecao));
             JsonNode destinosSelecionados = jsonSelecao.path("destinos");
 
             if (
@@ -2135,9 +2375,10 @@ public class GroqService {
                                 "role", "system", "content", promptCompleto
                         )),
                         "temperature", 0.1,
-                        "max_completion_tokens", 2600,
+                        "max_completion_tokens", 3200,
                         "response_format", Map.of("type", "json_object")
                 );
+                corpoCompleto = configurarRaciocinioLeveSeSuportado(corpoCompleto);
 
                 System.out.println("Planejamento maIA - análise integrada: "
                         + cidadeSelecionada + ".");
@@ -2146,20 +2387,18 @@ public class GroqService {
                 try {
                     conteudoCidade = executarRequisicao(corpoCompleto);
                 } catch (IllegalStateException erroGroq) {
-                    String mensagemErro = erroGroq.getMessage() == null
-                            ? "" : erroGroq.getMessage().toLowerCase(Locale.ROOT);
-                    if (!mensagemErro.contains("json_validate_failed")) {
+                    if (!erroJsonInvalidoGroq(erroGroq)) {
                         throw erroGroq;
                     }
-                    Map<String, Object> corpoRetry =
-                            new java.util.LinkedHashMap<>(corpoCompleto);
-                    corpoRetry.put("max_completion_tokens", 3400);
                     System.out.println("Planejamento maIA - JSON inválido para "
-                            + cidadeSelecionada + "; repetindo somente esta cidade.");
-                    conteudoCidade = executarRequisicao(corpoRetry, false);
+                            + cidadeSelecionada + "; repetindo somente esta cidade "
+                            + "sem JSON mode.");
+                    conteudoCidade = executarRequisicao(
+                            corpoPlanejamentoSemJsonMode(corpoCompleto, 4000), false);
                 }
 
-                JsonNode jsonCidade = objectMapper.readTree(conteudoCidade);
+                JsonNode jsonCidade = objectMapper.readTree(
+                        extrairJsonPlanejamento(conteudoCidade));
                 JsonNode destinosCidade = jsonCidade.path("destinos");
                 if (!destinosCidade.isArray() || destinosCidade.size() != 1) {
                     throw new IllegalStateException(
@@ -2288,9 +2527,40 @@ public class GroqService {
         }
     }
 
-    // =========================================================
+    /**
+     * O erro json_validate_failed ocorre antes de o provedor entregar o
+     * conteúdo. Uma única nova chamada sem JSON mode permite que o backend
+     * faça a validação do JSON, sem afetar o chat nem outras integrações.
+     */
+    private boolean erroJsonInvalidoGroq(Exception erro) {
+        String mensagem = erro.getMessage();
+        return mensagem != null && mensagem.toLowerCase(Locale.ROOT)
+                .contains("json_validate_failed");
+    }
+
+    private Map<String, Object> corpoPlanejamentoSemJsonMode(
+            Map<String, Object> corpoOriginal, int limiteTokens) {
+        Map<String, Object> corpo =
+                new java.util.LinkedHashMap<>(corpoOriginal);
+        corpo.remove("response_format");
+        corpo.put("max_completion_tokens", limiteTokens);
+        return configurarRaciocinioLeveSeSuportado(corpo);
+    }
+
+    /** Aceita JSON puro ou cercado por bloco markdown no retry sem JSON mode. */
+    private String extrairJsonPlanejamento(String conteudo) {
+        if (conteudo == null || conteudo.isBlank()) {
+            throw new IllegalStateException("A maIA retornou JSON vazio.");
+        }
+        int inicio = conteudo.indexOf('{');
+        int fim = conteudo.lastIndexOf('}');
+        if (inicio < 0 || fim <= inicio) {
+            throw new IllegalStateException("A maIA não retornou um objeto JSON.");
+        }
+        return conteudo.substring(inicio, fim + 1);
+    }
+
     // PROMPT DO PLANEJAMENTO
-    // =========================================================
 
     private String montarPromptUsuario(
             PlanejamentoRequest planejamento
@@ -2540,6 +2810,7 @@ public class GroqService {
                                         apiUrl
                                 )
                         )
+                        .timeout(java.time.Duration.ofSeconds(90))
                         .header(
                                 "Authorization",
                                 "Bearer "
@@ -2560,20 +2831,43 @@ public class GroqService {
 
         HttpResponse<String> response = null;
         final int maxTentativas = 4;
+        final int maxTentativas429 = 2;
 
         for (int tentativa = 1; tentativa <= maxTentativas; tentativa++) {
-            response = httpClient.send(
-                    request,
-                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)
-            );
+            try {
+                response = httpClient.send(
+                        request,
+                        HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)
+                );
+            } catch (java.io.IOException erroConexao) {
+                // Connection reset, timeout e outras falhas transitórias de transporte
+                // não têm resposta HTTP para analisar; reenviar a mesma requisição.
+                if (tentativa == maxTentativas) {
+                    throw new IllegalStateException(
+                            "Não foi possível concluir a conexão com a Groq após "
+                                    + maxTentativas + " tentativas: " + erroConexao.getMessage(),
+                            erroConexao
+                    );
+                }
+                long esperaConexaoMs = 1000L * tentativa;
+                System.err.println("Falha transitória na conexão com a Groq (tentativa "
+                        + tentativa + "/" + maxTentativas + "): "
+                        + erroConexao.getClass().getSimpleName() + " - "
+                        + erroConexao.getMessage() + ". Nova tentativa em "
+                        + esperaConexaoMs + " ms.");
+                Thread.sleep(esperaConexaoMs);
+                continue;
+            }
 
             if (response.statusCode() != 429) {
                 break;
             }
 
-            if (tentativa == maxTentativas) {
+            // Limites de tokens/minuto não desaparecem com retries em sequência.
+            if (tentativa >= maxTentativas429) {
                 throw new IllegalStateException(
-                        "Limite temporário de uso da Groq atingido. Tente novamente em instantes."
+                        "Limite temporário de uso da Groq (HTTP 429). "
+                                + "Aguarde o intervalo indicado pelo serviço e tente novamente."
                 );
             }
 
@@ -2598,7 +2892,15 @@ public class GroqService {
                 // Usa a espera progressiva quando não houver prazo válido.
             }
 
-            esperaMs = Math.min(60000L, esperaMs);
+            // Evita bloquear longamente o chat e acumular chamadas simultâneas.
+            // O usuário pode tentar novamente quando o limite da Groq liberar.
+            if (esperaMs > 20000L) {
+                throw new IllegalStateException(
+                        "Limite temporário da Groq (HTTP 429). "
+                                + "Tente novamente após aproximadamente "
+                                + ((esperaMs + 999L) / 1000L) + " segundos."
+                );
+            }
             System.out.println("Groq HTTP 429: aguardando " + esperaMs
                     + " ms antes da tentativa " + (tentativa + 1) + ".");
             Thread.sleep(esperaMs);
@@ -2686,10 +2988,8 @@ public class GroqService {
             );
         }
 
-        System.out.println(
-                " resposta bruta da Groq: "
-                        + response.body()
-        );
+        // Não imprime resposta bruta: pode conter dados pessoais e raciocínio
+        // interno do modelo. finish_reason e usage bastam para diagnóstico.
 
         /*
          * Alguns modelos podem consumir todo o orçamento de completion
@@ -2698,9 +2998,9 @@ public class GroqService {
          */
         if (
                 permitirNovaTentativa &&
-                "length".equalsIgnoreCase(
-                        finishReason
-                )
+                "length".equalsIgnoreCase(finishReason) &&
+                (!(corpo.get("max_completion_tokens") instanceof Number limite)
+                        || limite.intValue() < 2048)
         ) {
 
             Map<String, Object> corpoNovaTentativa =
@@ -2713,18 +3013,10 @@ public class GroqService {
                             "max_completion_tokens"
                     );
 
-            int novoLimite =
-                    2048;
+            int novoLimite = 2048;
 
-            if (
-                    limiteAtual instanceof Number numero
-            ) {
-
-                novoLimite =
-                        Math.max(
-                                2048,
-                                numero.intValue() * 2
-                        );
+            if (limiteAtual instanceof Number numero) {
+                novoLimite = Math.max(2048, (int) Math.ceil(numero.intValue() * 1.5));
             }
 
             corpoNovaTentativa.put(

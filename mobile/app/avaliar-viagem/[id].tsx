@@ -1,5 +1,5 @@
 import { API_URL } from '@/services/api';
-import { buscarUsuario } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
 import {
   router,
   useLocalSearchParams,
@@ -406,6 +406,9 @@ export default function AvaliarViagemScreen() {
         avaliacao
       );
 
+      const headersAutenticacao =
+        await obterHeadersAutenticacao();
+
       const response =
         await fetch(
           `${API_URL}/avaliacoes-viagens`,
@@ -416,6 +419,7 @@ export default function AvaliarViagemScreen() {
             headers: {
               'Content-Type':
                 'application/json',
+              ...headersAutenticacao,
             },
 
             body:

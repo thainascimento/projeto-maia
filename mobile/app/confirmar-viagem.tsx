@@ -1,5 +1,6 @@
 import { fetchAutenticado } from '@/services/api';
 import { buscarUsuario } from '@/services/auth';
+import AvaliacoesDestino from '@/components/AvaliacoesDestino';
 
 import {
   router,
@@ -1327,6 +1328,13 @@ export default function ConfirmarViagemScreen() {
             </Text>
           ) : null}
         </View>
+
+        {/* Avaliações públicas do destino selecionado. */}
+        <AvaliacoesDestino
+          cidade={cidade}
+          estado={estado}
+          pais={pais}
+        />
 
         <View
           style={

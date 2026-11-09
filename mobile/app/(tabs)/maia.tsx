@@ -14,12 +14,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Mensagem = {
   id: string;
@@ -155,9 +156,9 @@ export default function MaiaScreen() {
   const indiceLocalEmFocoRef =
     useRef<number | null>(null);
 
-  // =========================================================
+   
   // NORMALIZAÇÃO
-  // =========================================================
+   
 
   function normalizarTexto(
     valor: string
@@ -175,9 +176,9 @@ export default function MaiaScreen() {
       .trim();
   }
 
-  // =========================================================
+   
   // DETECTA QUANDO A USUÁRIA QUER O GPS ATUAL
-  // =========================================================
+   
 
   function mensagemPedeLocalizacaoAtual(
     mensagem: string
@@ -192,6 +193,15 @@ export default function MaiaScreen() {
       'perto de mim',
       'proximo de mim',
       'proxima de mim',
+      'por aqui onde estou',
+      'perto de onde estou',
+      'proximo de onde estou',
+      'proximas a mim',
+      'proximos de mim',
+      'proximas de mim',
+      'perto de onde estou',
+      'ao redor de mim',
+      'nas redondezas de onde estou',
       'onde eu estou',
       'onde estou agora',
       'minha localizacao atual',
@@ -221,9 +231,9 @@ export default function MaiaScreen() {
     );
   }
 
-  // =========================================================
+   
   // DETECTA QUANDO A USUÁRIA PEDE O DESTINO DA VIAGEM
-  // =========================================================
+   
 
   function mensagemPedeDestinoViagem(
     mensagem: string
@@ -258,9 +268,9 @@ export default function MaiaScreen() {
     );
   }
 
-  // =========================================================
+   
   // REFERÊNCIA CONTEXTUAL
-  // =========================================================
+   
 
   function mensagemUsaReferenciaContextual(
     mensagem: string
@@ -297,9 +307,9 @@ export default function MaiaScreen() {
     );
   }
 
-  // =========================================================
+   
   // INTERPRETAÇÃO DA INTENÇÃO PELA maIA
-  // =========================================================
+   
 
   async function interpretarMensagem(
     mensagem: string,
@@ -390,9 +400,9 @@ export default function MaiaScreen() {
     }
   }
 
-  // =========================================================
+   
   // BUSCA LOCALIZAÇÃO ATUAL
-  // =========================================================
+   
 
   async function buscarLocalizacaoAtual():
     Promise<
@@ -625,9 +635,9 @@ export default function MaiaScreen() {
     }
   }
 
-  // =========================================================
+   
   // ADICIONA RESPOSTA LOCAL DA maIA
-  // =========================================================
+   
 
   function adicionarMensagemMaia(
     mensagem: string
@@ -656,9 +666,9 @@ export default function MaiaScreen() {
     );
   }
 
-  // =========================================================
+   
   // ENVIO DA MENSAGEM
-  // =========================================================
+   
 
   async function enviarMensagem() {
 
@@ -770,16 +780,16 @@ export default function MaiaScreen() {
           )
         );
 
+      const pedidoExplicitoGps =
+        mensagemPedeLocalizacaoAtual(mensagem);
+          
       const precisaDeGPS =
-        usaSomenteResultadosAnteriores
-          ? false
-          : (
-              interpretacao
-                ?.precisaGps ??
-              mensagemPedeLocalizacaoAtual(
-                mensagem
-              )
-            );
+        !usaSomenteResultadosAnteriores &&
+        (
+          pedidoExplicitoGps ||
+          interpretacao?.precisaGps === true ||
+          interpretacao?.referenciaGeografica === 'GPS_ATUAL'
+        );      
 
       console.log(
         '------------------------------------------'
@@ -880,6 +890,19 @@ export default function MaiaScreen() {
         todosLocaisContextoRef.current.length
       );
 
+      const interpretacaoContraditoria =
+        pedidoExplicitoGps &&
+        (
+          interpretacao?.precisaGps === false ||
+          interpretacao?.referenciaGeografica === 'DESTINO_VIAGEM' ||
+          interpretacao?.referenciaGeografica === 'NENHUMA'
+        );
+
+      const interpretacaoParaEnvio =
+        interpretacaoContraditoria
+        ? null
+        : interpretacao;  
+
       const corpoRequisicao = {
 
         usuarioId:
@@ -901,42 +924,42 @@ export default function MaiaScreen() {
           null,
 
         intencaoInterpretada:
-          interpretacao
+          interpretacaoParaEnvio
             ?.intencao ??
           null,
 
         referenciaGeograficaInterpretada:
-          interpretacao
+          interpretacaoParaEnvio
             ?.referenciaGeografica ??
           null,
 
         categoriaLocalInterpretada:
-          interpretacao
+          interpretacaoParaEnvio
             ?.categoriaLocal ??
           null,
 
         precisaGpsInterpretada:
-          interpretacao
+          interpretacaoParaEnvio
             ?.precisaGps ??
           null,
 
         referenciaConversacionalInterpretada:
-          interpretacao
+          interpretacaoParaEnvio
             ?.referenciaConversacional ??
           null,
 
         criterioInterpretado:
-          interpretacao
+          interpretacaoParaEnvio
             ?.criterio ??
           null,
 
         indiceLocalInterpretado:
-          interpretacao
+          interpretacaoParaEnvio
             ?.indiceLocal ??
           null,
 
         escopoResultadosInterpretado:
-          interpretacao
+          interpretacaoParaEnvio
             ?.escopoResultados ??
           null,
 
@@ -953,7 +976,6 @@ export default function MaiaScreen() {
           indiceLocalEmFocoRef.current,
 
         /*
-         * Conjunto completo da última busca.
          * Permite "me mostre mais" sem nova chamada à Geoapify.
          */
         todosLocaisAnteriores:
@@ -1123,9 +1145,9 @@ export default function MaiaScreen() {
     }
   }
 
-  // =========================================================
+   
   // RENDERIZAÇÃO DAS MENSAGENS
-  // =========================================================
+   
 
   function renderMensagem({
     item,
@@ -1198,9 +1220,7 @@ export default function MaiaScreen() {
     );
   }
 
-  // =========================================================
   // INTERFACE
-  // =========================================================
 
   return (
 
@@ -1509,9 +1529,9 @@ export default function MaiaScreen() {
   );
 }
 
-// =========================================================
+ 
 // ESTILOS
-// =========================================================
+ 
 
 const styles =
   StyleSheet.create({

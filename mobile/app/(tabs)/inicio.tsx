@@ -1,5 +1,6 @@
-import { API_URL, fetchAutenticado } from '@/services/api';
+﻿import { API_URL, fetchAutenticado } from '@/services/api';
 import { buscarToken, buscarUsuario } from '@/services/auth';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import {
   router,
@@ -22,6 +23,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   Text,
   View,
 } from 'react-native';
@@ -125,7 +127,34 @@ function obterLocalSecundario(viagem: Viagem) {
     .join(', ');
 }
 
+// Percurso diagonal único: sai abaixo do canto esquerdo e termina acima do canto direito.
+// As posições são proporcionais ao tamanho da tela, para funcionar em celulares diferentes.
+function criarRotaAviao(largura: number, altura: number) {
+  const inicioX = -0.18 * largura;
+  const inicioY = 1.08 * altura;
+  const fimX = 1.12 * largura;
+  const fimY = -0.12 * altura;
+
+  // O ícone de avião aponta para cima por padrão; ajustamos sua rotação
+  // uma única vez para acompanhar a diagonal, sem giros ou zigue-zagues.
+  const angulo = Math.atan2(fimY - inicioY, fimX - inicioX) * 180 / Math.PI + 90;
+  const rotacao = `${angulo}deg`;
+
+  return {
+    momentos: [0, 1],
+    x: [inicioX, fimX],
+    y: [inicioY, fimY],
+    rotacoes: [rotacao, rotacao],
+  };
+}
+
 export default function HomeScreen() {
+  const { width: larguraTela, height: alturaTela } = useWindowDimensions();
+  const progressoAviao = useRef(new Animated.Value(0)).current;
+  const rotaAviao = useMemo(
+    () => criarRotaAviao(larguraTela, alturaTela),
+    [larguraTela, alturaTela]
+  );
   const [viagens, setViagens] = useState<Viagem[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -168,6 +197,24 @@ export default function HomeScreen() {
       void carregarPerfil();
       void carregarViagens();
     }, [])
+  );
+
+  // O avião percorre a tela inteira por trás do conteúdo enquanto a Home está em foco.
+  useFocusEffect(
+    useCallback(() => {
+      progressoAviao.setValue(0);
+      const voosContinuos = Animated.loop(
+        Animated.timing(progressoAviao, {
+          toValue: 1,
+          duration: 11500,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        { iterations: -1, resetBeforeIteration: true }
+      );
+      voosContinuos.start();
+      return () => voosContinuos.stop();
+    }, [progressoAviao])
   );
 
   useEffect(() => {
@@ -539,7 +586,48 @@ export default function HomeScreen() {
 
         <View style={styles.smallCircleOne} />
         <View style={styles.smallCircleTwo} />
+        {renderAviaoFundo()}
       </View>
+    );
+  }
+
+  function renderAviaoFundo() {
+    // Uma única diagonal, com deslocamento e rotação constantes.
+    const percursoX = progressoAviao.interpolate({
+      inputRange: rotaAviao.momentos,
+      outputRange: rotaAviao.x,
+    });
+    const percursoY = progressoAviao.interpolate({
+      inputRange: rotaAviao.momentos,
+      outputRange: rotaAviao.y,
+    });
+    const inclinacao = progressoAviao.interpolate({
+      inputRange: rotaAviao.momentos,
+      outputRange: rotaAviao.rotacoes,
+    });
+    const opacidade = progressoAviao.interpolate({
+      inputRange: [0, 0.025, 0.975, 1],
+      outputRange: [0, 0.9, 0.9, 0],
+    });
+
+    return (
+      <Animated.View
+        pointerEvents="none"
+        accessible={false}
+        style={[
+          styles.aviaoVoador,
+          {
+            opacity: opacidade,
+            transform: [
+              { translateX: percursoX },
+              { translateY: percursoY },
+              { rotate: inclinacao },
+            ],
+          },
+        ]}
+      >
+        <MaterialCommunityIcons name="airplane" size={70} color="#F4AD70" />
+      </Animated.View>
     );
   }
 
@@ -1110,6 +1198,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(109, 40, 217, 0.1)',
     top: 530,
     left: 28,
+  },
+
+  aviaoVoador: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   header: {

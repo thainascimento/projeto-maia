@@ -51,9 +51,7 @@ public class GeoapifyPlacesService {
                 objectMapper;
     }
 
-    // =========================================================
     // LOCAIS / ROLÊ!
-    // =========================================================
 
     public List<LocalResponse> buscarLocais(
             double latitude,
@@ -467,10 +465,6 @@ public class GeoapifyPlacesService {
         return locais;
     }
 
-    // =========================================================
-    // REVERSE GEOCODING / LOCALIZAÇÃO ATUAL
-    // =========================================================
-
     public LocalizacaoResponse buscarLocalizacaoAtual(
             double latitude,
             double longitude
@@ -599,9 +593,7 @@ public class GeoapifyPlacesService {
     ) {
     }
 
-    // =========================================================
     // VALIDAÇÃO E ERROS DA API
-    // =========================================================
 
     private boolean coordenadasValidas(double latitude, double longitude) {
         return Double.isFinite(latitude)
@@ -646,9 +638,7 @@ public class GeoapifyPlacesService {
         );
     }
 
-    // =========================================================
     // CATEGORIAS
-    // =========================================================
 
     private String converterCategoria(
             String categoria
@@ -706,6 +696,32 @@ public class GeoapifyPlacesService {
                  "farmácia",
                  "farmácias" ->
                     "healthcare.pharmacy";
+
+            case "hospital",
+                 "hospitais",
+                 "pronto socorro",
+                 "prontos socorros",
+                 "pronto-socorro",
+                 "prontos-socorros",
+                 "unidade de pronto socorro",
+                 "unidades de pronto socorros",
+                 "upa",
+                 "unidade de pronto atendimento",
+                 "emergência médica",
+                 "emergencia medica",
+                 "posto de saude",
+                 "postos de saude" ->
+                    "healthcare.hospital";
+
+            case "clinica",
+                 "clinicas",
+                 "clínica",
+                 "clínicas",
+                 "consultorio",
+                 "consultorios",
+                 "consultório",
+                 "consultórios" ->
+                    "healthcare.clinic_or_praxis";
 
             case "praia",
                  "praias" ->
@@ -791,9 +807,9 @@ public class GeoapifyPlacesService {
         };
     }
 
-    // =========================================================
+
     // HELPERS
-    // =========================================================
+
 
     private String texto(
             Object valor

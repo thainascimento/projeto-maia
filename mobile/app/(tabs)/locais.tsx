@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 
 import { API_URL } from '@/services/api';
-import { obterHeadersAutenticacao } from '@/services/auth';
+import { buscarUsuario, obterHeadersAutenticacao } from '@/services/auth';
+import MapView, { Callout, Marker } from 'react-native-maps';
 
 type Local = {
   id: string;
@@ -22,6 +23,20 @@ type Local = {
   latitude: number;
   longitude: number;
   endereco: string;
+};
+
+type VisitaAtiva = {
+  id: number;
+  usuarioId: number;
+  localId: string;
+  nomeLocal: string;
+  categoria: string;
+  endereco: string;
+  latitude: number;
+  longitude: number;
+  checkIn: string;
+  checkOut: string | null;
+  avaliada: boolean;
 };
 
 type GeoapifyResultado = {
@@ -46,6 +61,7 @@ const CATEGORIAS = [
   'Supermercados',
   'Farmácias',
   'Praias',
+  'Hospitais',
 ];
 
 export default function LocaisScreen() {
@@ -61,6 +77,11 @@ export default function LocaisScreen() {
     useState(false);
 
   const [erro, setErro] = useState('');
+  const [visitaAtiva, setVisitaAtiva] = useState<VisitaAtiva | null>(null);
+  const [erroVisitaAtiva, setErroVisitaAtiva] = useState(false);
+
+  const mapaRef = useRef<MapView>(null);
+  const [mapaPronto, setMapaPronto] = useState(false);
 
   const [localizacaoBusca, setLocalizacaoBusca] =
     useState('Obtendo sua localização...');
@@ -90,6 +111,84 @@ export default function LocaisScreen() {
     latitudeBusca,
     longitudeBusca,
   ]);
+
+  // Ao voltar da tela de detalhes, verifica se houve check-in ou check-out.
+  // A consulta é independente da categoria atualmente selecionada no ROLÊ!.
+  useFocusEffect(
+    useCallback(() => {
+      let telaAtiva = true;
+
+      async function atualizarVisitaAtiva() {
+        try {
+          const usuario = await buscarUsuario();
+          if (!telaAtiva) return;
+
+          if (!usuario?.id) {
+            setVisitaAtiva(null);
+            setErroVisitaAtiva(false);
+            return;
+          }
+
+          const headers = await obterHeadersAutenticacao();
+          const response = await fetch(
+            `${API_URL}/visitas/ativa?usuarioId=${encodeURIComponent(String(usuario.id))}`,
+            { headers: { ...headers, Accept: 'application/json' } }
+          );
+          if (!telaAtiva) return;
+
+          if (response.status === 204) {
+            setVisitaAtiva(null);
+            setErroVisitaAtiva(false);
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error(`Erro HTTP ${response.status}`);
+          }
+
+          const visita: VisitaAtiva = await response.json();
+          if (!telaAtiva) return;
+          setVisitaAtiva(visita?.checkOut ? null : visita);
+          setErroVisitaAtiva(false);
+        } catch (error) {
+          console.error('Erro ao consultar visita ativa no ROLÊ!:', error);
+          if (telaAtiva) {
+            // Evita mostrar check-in antigo como se ainda estivesse em andamento.
+            setVisitaAtiva(null);
+            setErroVisitaAtiva(true);
+          }
+        }
+      }
+
+      void atualizarVisitaAtiva();
+      return () => { telaAtiva = false; };
+    }, [])
+  );
+
+  function abrirVisitaAtiva() {
+    if (!visitaAtiva) return;
+
+    const distancia = latitudeBusca !== null && longitudeBusca !== null &&
+      Number.isFinite(visitaAtiva.latitude) && Number.isFinite(visitaAtiva.longitude)
+      ? formatarDistancia(calcularDistancia(
+          latitudeBusca, longitudeBusca,
+          visitaAtiva.latitude, visitaAtiva.longitude
+        ))
+      : '';
+
+    router.push({
+      pathname: '/local/[id]' as any,
+      params: {
+        id: visitaAtiva.localId,
+        nome: visitaAtiva.nomeLocal,
+        categoria: visitaAtiva.categoria,
+        endereco: visitaAtiva.endereco || 'Endereço não disponível',
+        distancia,
+        latitude: String(visitaAtiva.latitude),
+        longitude: String(visitaAtiva.longitude),
+      },
+    });
+  }
 
   async function usarMinhaLocalizacao() {
     try {
@@ -321,6 +420,9 @@ export default function LocaisScreen() {
       case 'Praias':
         return 'praia';
 
+      case 'Hospitais':
+        return 'hospital';  
+
       default:
         return 'cafe';
     }
@@ -381,17 +483,79 @@ export default function LocaisScreen() {
   const termoBusca =
     busca.trim().toLowerCase();
 
-  const locaisFiltrados =
-    locais.filter((local) => {
+  const locaisFiltrados = useMemo(
+    () => locais.filter((local) => {
       return (
-        local.nome
-          .toLowerCase()
-          .includes(termoBusca) ||
-        local.endereco
-          ?.toLowerCase()
-          .includes(termoBusca)
+        local.nome.toLowerCase().includes(termoBusca) ||
+        local.endereco?.toLowerCase().includes(termoBusca)
       );
+    }),
+    [locais, termoBusca]
+  );
+
+  // O mapa utiliza os mesmos resultados filtrados exibidos nos cartões.
+  const locaisComCoordenadas = useMemo(
+    () => locaisFiltrados.filter(
+      (local) => Number.isFinite(local.latitude) &&
+                 Number.isFinite(local.longitude) &&
+                 Math.abs(local.latitude) <= 90 &&
+                 Math.abs(local.longitude) <= 180
+    ),
+    [locaisFiltrados]
+  );
+
+  function abrirDetalhesLocal(local: Local) {
+    const textoDistancia = latitudeBusca !== null && longitudeBusca !== null
+      ? formatarDistancia(calcularDistancia(
+          latitudeBusca, longitudeBusca, local.latitude, local.longitude
+        ))
+      : '';
+
+    router.push({
+      pathname: '/local/[id]' as any,
+      params: {
+        id: local.id,
+        nome: local.nome,
+        categoria: categoriaSelecionada,
+        endereco: local.endereco || 'Endereço não disponível',
+        distancia: textoDistancia,
+        latitude: String(local.latitude),
+        longitude: String(local.longitude),
+      },
     });
+  }
+
+  function ajustarMapa() {
+    if (!mapaRef.current || latitudeBusca === null || longitudeBusca === null) {
+      return;
+    }
+
+    const coordenadas = [
+      { latitude: latitudeBusca, longitude: longitudeBusca },
+      ...locaisComCoordenadas.map((local) => ({
+        latitude: local.latitude,
+        longitude: local.longitude,
+      })),
+    ];
+
+    if (coordenadas.length > 1) {
+      mapaRef.current.fitToCoordinates(coordenadas, {
+        edgePadding: { top: 45, right: 45, bottom: 45, left: 45 },
+        animated: false,
+      });
+    } else {
+      mapaRef.current.animateToRegion({
+        latitude: latitudeBusca,
+        longitude: longitudeBusca,
+        latitudeDelta: 0.055,
+        longitudeDelta: 0.055,
+      }, 250);
+    }
+  }
+
+  useEffect(() => {
+    if (mapaPronto) ajustarMapa();
+  }, [mapaPronto, locaisComCoordenadas, latitudeBusca, longitudeBusca]);
 
   return (
     <View style={styles.container}>
@@ -408,6 +572,35 @@ export default function LocaisScreen() {
           Explore lugares próximos de você ou pesquise qualquer outro destino.
         </Text>
       </View>
+
+      {visitaAtiva && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.activeVisitCard,
+            pressed && styles.activeVisitCardPressed,
+          ]}
+          onPress={abrirVisitaAtiva}
+          accessibilityRole="button"
+          accessibilityLabel={`Visita em andamento em ${visitaAtiva.nomeLocal}. Abrir detalhes para fazer check-out.`}
+        >
+          <View style={styles.activeVisitIndicator} />
+          <View style={styles.activeVisitContent}>
+            <Text style={styles.activeVisitLabel}>VISITA EM ANDAMENTO</Text>
+            <Text style={styles.activeVisitName} numberOfLines={2}>
+              {visitaAtiva.nomeLocal || 'Local visitado'}
+            </Text>
+            <Text style={styles.activeVisitHelper}>
+              Toque para ver os detalhes e fazer check-out
+            </Text>
+          </View>
+          <Text style={styles.activeVisitChevron}>›</Text>
+        </Pressable>
+      )}
+      {erroVisitaAtiva && !visitaAtiva && (
+        <Text style={styles.activeVisitError}>
+          Não foi possível verificar se há uma visita em andamento.
+        </Text>
+      )}
 
       <View style={styles.locationCard}>
         <Text style={styles.locationLabel}>
@@ -540,6 +733,71 @@ export default function LocaisScreen() {
         </ScrollView>
       </View>
 
+      {latitudeBusca !== null && longitudeBusca !== null && (
+        <View style={styles.mapCard}>
+          <View style={styles.mapHeader}>
+            <View style={styles.mapHeaderText}>
+              <Text style={styles.mapTitle}>Mapa dos locais</Text>
+              <Text style={styles.mapSubtitle}>
+                {carregando
+                  ? 'Atualizando os locais...'
+                  : `${locaisComCoordenadas.length} ${categoriaSelecionada.toLowerCase()} no mapa`}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.mapCenterButton}
+              onPress={ajustarMapa}
+              accessibilityLabel="Centralizar mapa nos resultados"
+            >
+              <Text style={styles.mapCenterButtonText}>Centralizar</Text>
+            </Pressable>
+          </View>
+
+          <MapView
+            ref={mapaRef}
+            style={styles.map}
+            initialRegion={{
+              latitude: latitudeBusca,
+              longitude: longitudeBusca,
+              latitudeDelta: 0.055,
+              longitudeDelta: 0.055,
+            }}
+            onMapReady={() => setMapaPronto(true)}
+            showsCompass
+            showsScale
+          >
+            <Marker
+              coordinate={{ latitude: latitudeBusca, longitude: longitudeBusca }}
+              title="Ponto pesquisado"
+              description={localizacaoBusca}
+              pinColor="#2563eb"
+            />
+            {locaisComCoordenadas.map((local) => (
+              <Marker
+                key={local.id}
+                coordinate={{ latitude: local.latitude, longitude: local.longitude }}
+                pinColor="#6d28d9"
+                title={local.nome}
+                description={local.endereco || 'Toque para ver os detalhes'}
+              >
+                <Callout onPress={() => abrirDetalhesLocal(local)}>
+                  <View style={styles.mapCallout}>
+                    <Text style={styles.mapCalloutTitle}>{local.nome}</Text>
+                    <Text style={styles.mapCalloutAddress}>
+                      {local.endereco || 'Endereço não disponível'}
+                    </Text>
+                    <Text style={styles.mapCalloutLink}>Ver detalhes</Text>
+                  </View>
+                </Callout>
+              </Marker>
+            ))}
+          </MapView>
+          <Text style={styles.mapHint}>
+            Toque em um pin roxinho para ver o local. O pin azul indica o ponto onde vc esta.
+          </Text>
+        </View>
+      )}
+
       <Text style={styles.sectionTitle}>
         Resultados
       </Text>
@@ -633,29 +891,7 @@ export default function LocaisScreen() {
                   pressed &&
                     styles.cardPressed,
                 ]}
-                onPress={() => {
-                  router.push({
-                    pathname:
-                      '/local/[id]' as any,
-                    params: {
-                      id: item.id,
-                      nome: item.nome,
-                      categoria:
-                        categoriaSelecionada,
-                      endereco:
-                        item.endereco ||
-                        'Endereço não disponível',
-                      distancia:
-                        textoDistancia,
-                      latitude: String(
-                        item.latitude
-                      ),
-                      longitude: String(
-                        item.longitude
-                      ),
-                    },
-                  });
-                }}
+                onPress={() => abrirDetalhesLocal(item)}
               >
                 <View style={styles.cardTop}>
                   <View
@@ -742,6 +978,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f7fb',
     paddingTop: 52,
     paddingHorizontal: 20,
+  },
+
+  activeVisitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1ebff',
+    borderWidth: 1,
+    borderColor: '#c4b5fd',
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  activeVisitCardPressed: {
+    opacity: 0.75,
+  },
+  activeVisitIndicator: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: '#6d28d9',
+    marginRight: 12,
+  },
+  activeVisitContent: {
+    flex: 1,
+  },
+  activeVisitLabel: {
+    color: '#6d28d9',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    marginBottom: 4,
+  },
+  activeVisitName: {
+    color: '#252133',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  activeVisitHelper: {
+    color: '#625678',
+    fontSize: 12,
+  },
+  activeVisitChevron: {
+    color: '#6d28d9',
+    fontSize: 29,
+    marginLeft: 8,
+  },
+  activeVisitError: {
+    fontSize: 12,
+    color: '#765b22',
+    marginBottom: 12,
   },
 
   header: {
@@ -896,6 +1184,78 @@ const styles = StyleSheet.create({
 
   categoryTextSelected: {
     color: '#ffffff',
+  },
+
+  mapCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e6e6ec',
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  mapHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mapHeaderText: {
+    flex: 1,
+  },
+  mapTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#222222',
+  },
+  mapSubtitle: {
+    fontSize: 12,
+    color: '#777777',
+    marginTop: 2,
+  },
+  mapCenterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#f1ebff',
+    marginLeft: 8,
+  },
+  mapCenterButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6d28d9',
+  },
+  map: {
+    height: 235,
+    width: '100%',
+  },
+  mapHint: {
+    fontSize: 11,
+    color: '#777777',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  mapCallout: {
+    minWidth: 175,
+    maxWidth: 240,
+    padding: 4,
+  },
+  mapCalloutTitle: {
+    color: '#222222',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  mapCalloutAddress: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  mapCalloutLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6d28d9',
+    marginTop: 6,
   },
 
   sectionTitle: {
