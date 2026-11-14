@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -39,20 +38,6 @@ type VisitaAtiva = {
   avaliada: boolean;
 };
 
-type GeoapifyResultado = {
-  lat?: number;
-  lon?: number;
-  formatted?: string;
-  name?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-};
-
-type GeoapifyResposta = {
-  results?: GeoapifyResultado[];
-};
-
 const CATEGORIAS = [
   'Cafés',
   'Restaurantes',
@@ -65,16 +50,11 @@ const CATEGORIAS = [
 ];
 
 export default function LocaisScreen() {
-  const [busca, setBusca] = useState('');
-  const [buscaLocalizacao, setBuscaLocalizacao] = useState('');
   const [categoriaSelecionada, setCategoriaSelecionada] =
     useState('Cafés');
 
   const [locais, setLocais] = useState<Local[]>([]);
   const [carregando, setCarregando] = useState(true);
-
-  const [carregandoLocalizacao, setCarregandoLocalizacao] =
-    useState(false);
 
   const [erro, setErro] = useState('');
   const [visitaAtiva, setVisitaAtiva] = useState<VisitaAtiva | null>(null);
@@ -192,7 +172,6 @@ export default function LocaisScreen() {
 
   async function usarMinhaLocalizacao() {
     try {
-      setCarregandoLocalizacao(true);
       setErro('');
 
       const permissao =
@@ -248,107 +227,12 @@ export default function LocaisScreen() {
       setLatitudeBusca(latitude);
       setLongitudeBusca(longitude);
 
-      setBuscaLocalizacao('');
     } catch (error) {
       console.error(error);
 
       setErro(
         'Não foi possível obter sua localização atual.'
       );
-    } finally {
-      setCarregandoLocalizacao(false);
-    }
-  }
-
-  async function pesquisarLocalizacao() {
-    const texto =
-      buscaLocalizacao.trim();
-
-    if (!texto) {
-      setErro(
-        'Digite uma cidade, bairro, endereço ou destino.'
-      );
-      return;
-    }
-
-    try {
-      setCarregandoLocalizacao(true);
-      setErro('');
-
-      const headers = await obterHeadersAutenticacao();
-      const response = await fetch(
-        `${API_URL}/geocoding/buscar?texto=${encodeURIComponent(
-          texto
-        )}`,
-        { headers: { ...headers, Accept: 'application/json' } }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Erro HTTP: ${response.status}`
-        );
-      }
-
-      const dados: GeoapifyResposta =
-        await response.json();
-
-      if (
-        !dados.results ||
-        dados.results.length === 0
-      ) {
-        setErro(
-          'Não encontramos essa localização.'
-        );
-        return;
-      }
-
-      const resultado =
-        dados.results[0];
-
-      if (
-        resultado.lat === undefined ||
-        resultado.lon === undefined
-      ) {
-        setErro(
-          'A localização foi encontrada, mas não possui coordenadas válidas.'
-        );
-        return;
-      }
-
-      const nomeLocal =
-        resultado.formatted ||
-        [
-          resultado.name,
-          resultado.city,
-          resultado.state,
-          resultado.country,
-        ]
-          .filter(Boolean)
-          .join(', ');
-
-      setLocalizacaoBusca(
-        nomeLocal || texto
-      );
-
-      setLocais([]);
-      
-      setLatitudeBusca(
-        resultado.lat
-      );
-
-      setLongitudeBusca(
-        resultado.lon
-      );
-
-      setBusca('');
-    } catch (error) {
-      console.error(error);
-
-      setErro(
-        'Não foi possível pesquisar essa localização.'
-      );
-    } finally {
-      setCarregandoLocalizacao(false);
     }
   }
 
@@ -480,28 +364,15 @@ export default function LocaisScreen() {
     )} km`;
   }
 
-  const termoBusca =
-    busca.trim().toLowerCase();
-
-  const locaisFiltrados = useMemo(
-    () => locais.filter((local) => {
-      return (
-        local.nome.toLowerCase().includes(termoBusca) ||
-        local.endereco?.toLowerCase().includes(termoBusca)
-      );
-    }),
-    [locais, termoBusca]
-  );
-
-  // O mapa utiliza os mesmos resultados filtrados exibidos nos cartões.
+  // O mapa utiliza os mesmos resultados exibidos nos cartões.
   const locaisComCoordenadas = useMemo(
-    () => locaisFiltrados.filter(
+    () => locais.filter(
       (local) => Number.isFinite(local.latitude) &&
                  Number.isFinite(local.longitude) &&
                  Math.abs(local.latitude) <= 90 &&
                  Math.abs(local.longitude) <= 180
     ),
-    [locaisFiltrados]
+    [locais]
   );
 
   function abrirDetalhesLocal(local: Local) {
@@ -569,7 +440,7 @@ export default function LocaisScreen() {
         </Text>
 
         <Text style={styles.subtitle}>
-          Explore lugares próximos de você ou pesquise qualquer outro destino.
+          Explore lugares próximos da sua localização atual.
         </Text>
       </View>
 
@@ -604,84 +475,13 @@ export default function LocaisScreen() {
 
       <View style={styles.locationCard}>
         <Text style={styles.locationLabel}>
-          Buscando perto de
+          Sua localização
         </Text>
 
         <Text style={styles.locationText}>
           {localizacaoBusca}
         </Text>
 
-        <View
-          style={styles.locationSearchRow}
-        >
-          <TextInput
-            style={styles.locationInput}
-            placeholder="Cidade, bairro ou endereço..."
-            placeholderTextColor="#888"
-            value={buscaLocalizacao}
-            onChangeText={
-              setBuscaLocalizacao
-            }
-            returnKeyType="search"
-            onSubmitEditing={
-              pesquisarLocalizacao
-            }
-          />
-
-          <Pressable
-            style={
-              styles.locationSearchButton
-            }
-            onPress={
-              pesquisarLocalizacao
-            }
-            disabled={
-              carregandoLocalizacao
-            }
-          >
-            <Text
-              style={
-                styles.locationSearchButtonText
-              }
-            >
-              Buscar
-            </Text>
-          </Pressable>
-        </View>
-
-        <Pressable
-          style={
-            styles.currentLocationButton
-          }
-          onPress={usarMinhaLocalizacao}
-          disabled={
-            carregandoLocalizacao
-          }
-        >
-          <Text
-            style={
-              styles.currentLocationText
-            }
-          >
-            {carregandoLocalizacao
-              ? 'Obtendo localização...'
-              : '📍 Usar minha localização atual'}
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>
-          ⌕
-        </Text>
-
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Filtrar resultados..."
-          placeholderTextColor="#888"
-          value={busca}
-          onChangeText={setBusca}
-        />
       </View>
 
       <View
@@ -768,7 +568,7 @@ export default function LocaisScreen() {
           >
             <Marker
               coordinate={{ latitude: latitudeBusca, longitude: longitudeBusca }}
-              title="Ponto pesquisado"
+              title="Sua localização atual"
               description={localizacaoBusca}
               pinColor="#2563eb"
             />
@@ -793,7 +593,7 @@ export default function LocaisScreen() {
             ))}
           </MapView>
           <Text style={styles.mapHint}>
-            Toque em um pin roxinho para ver o local. O pin azul indica o ponto onde vc esta.
+            Toque em um pin roxinho para ver o local. O pin azul indica sua localização atual.
           </Text>
         </View>
       )}
@@ -837,7 +637,7 @@ export default function LocaisScreen() {
         </View>
       ) : (
         <FlatList
-          data={locaisFiltrados}
+          data={locais}
           keyExtractor={(item) =>
             item.id
           }
@@ -862,7 +662,7 @@ export default function LocaisScreen() {
               <Text
                 style={styles.emptyText}
               >
-                Tente outra categoria ou outra localização.
+                Tente outra categoria.
               </Text>
             </View>
           }
@@ -952,7 +752,7 @@ export default function LocaisScreen() {
                       styles.distanceLabel
                     }
                   >
-                    Distância do ponto pesquisado
+                    Distância da sua localização
                   </Text>
 
                   <Text
@@ -1078,74 +878,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#222222',
     lineHeight: 20,
-    marginBottom: 12,
-  },
-
-  locationSearchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-
-  locationInput: {
-    flex: 1,
-    backgroundColor: '#f7f7fb',
-    borderWidth: 1,
-    borderColor: '#e2e2ea',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    color: '#222222',
-    fontSize: 14,
-    marginRight: 8,
-  },
-
-  locationSearchButton: {
-    backgroundColor: '#6d28d9',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-
-  locationSearchButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  currentLocationButton: {
-    paddingVertical: 5,
-    alignItems: 'flex-start',
-  },
-
-  currentLocationText: {
-    color: '#6d28d9',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e6e6ec',
-  },
-
-  searchIcon: {
-    fontSize: 22,
-    marginRight: 8,
-    color: '#777777',
-  },
-
-  searchInput: {
-    flex: 1,
-    paddingVertical: 13,
-    fontSize: 15,
-    color: '#222222',
   },
 
   categoriesWrapper: {
